@@ -1592,7 +1592,7 @@ Processing workflow
    ↓
 Procurement completion
    ↓
-Payment update
+Payment updates
 ```
 
 This is the core value of the **Smart Procurement Management System**.
