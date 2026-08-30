@@ -32,6 +32,9 @@ build/
 ### VS Code ###
 .vscode/
 
+# Local configuration
+src/main/resources/application-local.properties
+
 ### Environment / Secrets ###
 .env
 .env.*
