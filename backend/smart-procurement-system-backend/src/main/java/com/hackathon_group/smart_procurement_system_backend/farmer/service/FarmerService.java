@@ -1,5 +1,6 @@
 package com.hackathon_group.smart_procurement_system_backend.farmer.service;
 
+import com.hackathon_group.smart_procurement_system_backend.exception.ResourceNotFoundException;
 import com.hackathon_group.smart_procurement_system_backend.farmer.dto.FarmerCreateRequest;
 import com.hackathon_group.smart_procurement_system_backend.farmer.dto.FarmerResponse;
 import com.hackathon_group.smart_procurement_system_backend.farmer.dto.FarmerUpdateRequest;
@@ -43,7 +44,7 @@ public class FarmerService {
 
        Farmer farmer = farmerRepository.findById(id)
                 .orElseThrow(() ->
-                        new RuntimeException("Farmer not found"));
+                        new ResourceNotFoundException("Farmer not found"));
 
         farmer.setName(request.getName());
         farmer.setVillage(request.getVillage());
@@ -63,7 +64,7 @@ public class FarmerService {
     public FarmerResponse getFarmer(Long id){
         Farmer farmer = farmerRepository.findById(id)
                 .orElseThrow(() ->
-                        new RuntimeException("Farmer not found"));
+                        new ResourceNotFoundException("Farmer not found"));
 
         return mapToResponse(farmer);
     }

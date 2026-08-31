@@ -7,22 +7,23 @@ import lombok.Setter;
 @Getter
 @Setter
 public class FarmerUpdateRequest {
-    @NotBlank
+
+    @NotBlank(message = "name is required")
     private String name;
 
-    @NotBlank
+    @NotBlank (message = "aadhaar is required")
     private String adhaar;
 
-    @NotBlank
+    @NotBlank(message = "Village is required")
     private String village;
 
-    @NotBlank
+    @NotBlank(message = "block is required")
     private String block;
 
-    @NotBlank
+    @NotBlank(message = "district is required")
     private String district;
 
-    @NotBlank
+    @NotBlank(message = "state is required")
     private String state;
 
     private String preferredLanguage;

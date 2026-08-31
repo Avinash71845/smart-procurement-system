@@ -10,25 +10,31 @@ import lombok.Setter;
     @Setter
     public class FarmerCreateRequest {
 
-        @NotBlank
+        @NotBlank (message = "name is required")
         private String name;
 
-        @NotBlank
-        @Pattern(regexp = "^[0-9]{10}$")
+        @NotBlank(message = "phone number is required")
+        @Pattern(regexp = "^[0-9]{10}$",
+        message = "phone number must contain exactly 10 digits")
         private String phone;
 
+        @NotBlank(message = "Aadhaar number is required")
+        @Pattern(
+                regexp = "^[0-9]{12}$",
+                message = "Aadhaar number must contain exactly 12 digits"
+        )
         private String adhaar;
 
-        @NotBlank
+        @NotBlank(message = "village is required")
         private String village;
 
-        @NotBlank
+        @NotBlank(message = "block is required")
         private String block;
 
-        @NotBlank
+        @NotBlank(message = "district is required")
         private String district;
 
-        @NotBlank
+        @NotBlank(message = "state is required")
         private String state;
 
         private String preferredLanguage;

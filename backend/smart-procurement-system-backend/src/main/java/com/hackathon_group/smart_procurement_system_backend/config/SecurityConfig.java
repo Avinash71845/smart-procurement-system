@@ -13,14 +13,9 @@ public class SecurityConfig {
             throws Exception {
 
         http
-                // Disable CSRF for REST API development
                 .csrf(csrf -> csrf.disable())
-
-                // Temporary: allow Farmer APIs without authentication
-                // This will be replaced with JWT-based authentication later
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/farmers/**").permitAll()
-                        .anyRequest().authenticated()
+                        .anyRequest().permitAll()
                 );
 
         return http.build();

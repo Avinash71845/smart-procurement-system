@@ -39,10 +39,16 @@ public class FarmerController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<FarmerResponse> updateFarmer(@PathVariable Long id, @RequestBody FarmerUpdateRequest request){
+    public ResponseEntity<FarmerResponse> updateFarmer(@PathVariable Long id,@Valid @RequestBody FarmerUpdateRequest request){
 
         FarmerResponse response = farmerService.updateFarmer(id,request);
         return ResponseEntity.ok(response);
     }
 
+
+
+//    TODO
+//  - Fix POST/PUT 403 in SecurityConfig
+//- Integrate Farmer /me with JWT
+//- Finalize authentication/authorization
 }
