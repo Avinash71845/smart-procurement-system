@@ -38,13 +38,13 @@ const operatorFeatures = [
     icon: Activity,
     title: 'Real-Time Weighing & Quality Broadcast',
     desc: 'Publish verified net weights and grade test results so farmers can review appraisal records on their phone.',
-    route: '/operatordashboard'
+    route: '/weighing-details'
   },
   {
     icon: Receipt,
     title: 'Payment Push & DBT Status Sync',
     desc: 'Clear digital J-Forms, initiate bank settlements, and push live payment disbursement statuses to farmer accounts.',
-    route: '/operatordashboard'
+    route: '/payment-give'
   }
 ];
 
