@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.core.Authentication;
 
 @RestController
 @RequestMapping("/api/farmers")
@@ -18,12 +19,12 @@ public class FarmerController {
 
     //create the farmer profile
     @PostMapping
-    public ResponseEntity<FarmerResponse> createFarmer(@Valid @RequestBody FarmerCreateRequest request){
+    public ResponseEntity<FarmerResponse> createFarmer(@Valid @RequestBody FarmerCreateRequest request, Authentication authentication){
         // Temporary until JWT/Spring Security is integrated
-        Long temporaryUserId = 101L;
+        String mobile = authentication.getName();
 
-        FarmerResponse response = farmerService.createFarmer(request,temporaryUserId);
-
+        FarmerResponse response =
+                farmerService.createFarmer(request, mobile);
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(response);
