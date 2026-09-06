@@ -14,6 +14,7 @@ import com.hackathon_group.smart_procurement_system_backend.auth.entity.User;
 import com.hackathon_group.smart_procurement_system_backend.auth.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -36,6 +37,7 @@ public class BookingService {
     private UserRepository userRepository;
 
 
+    @Transactional
     public BookingResponse createBooking(
             BookingCreateRequest request,
             String mobile) {
@@ -166,14 +168,32 @@ public class BookingService {
         return mapToResponse(savedBooking);
     }
 
-    public BookingResponse getBooking(Long id) {
+
+    public BookingResponse getBooking(
+            Long id,
+            String mobile) {
+
+        User user = userRepository.findByMobile(mobile)
+                .orElseThrow(() ->
+                        new RuntimeException("User not found"));
+
+        Farmer farmer = farmerRepository.findByUserId(user.getId())
+                .orElseThrow(() ->
+                        new RuntimeException("Farmer profile not found"));
 
         Booking booking = bookingRepository.findById(id)
                 .orElseThrow(() ->
                         new RuntimeException("Booking not found"));
 
+        if (!booking.getFarmer().getId().equals(farmer.getId())) {
+
+            throw new RuntimeException(
+                    "You are not allowed to view this booking");
+        }
+
         return mapToResponse(booking);
     }
+
 
     public List<BookingResponse> getMyBookings(String mobile) {
 
@@ -197,15 +217,105 @@ public class BookingService {
         return responses;
     }
 
-    public BookingResponse getBookingByToken(String tokenNumber) {
+    public BookingResponse getBookingByToken(
+            String tokenNumber,
+            String mobile) {
+
+        User user = userRepository.findByMobile(mobile)
+                .orElseThrow(() ->
+                        new RuntimeException("User not found"));
+
+        Farmer farmer = farmerRepository.findByUserId(user.getId())
+                .orElseThrow(() ->
+                        new RuntimeException("Farmer profile not found"));
 
         Booking booking =
                 bookingRepository.findByTokenNumber(tokenNumber)
                         .orElseThrow(() ->
                                 new RuntimeException("Booking not found"));
 
+        if (!booking.getFarmer().getId().equals(farmer.getId())) {
+
+            throw new RuntimeException(
+                    "You are not allowed to view this booking");
+        }
+
         return mapToResponse(booking);
     }
+
+
+    @Transactional
+    public BookingResponse cancelBooking(
+            Long bookingId,
+            String mobile) {
+
+        // 1. Find logged-in user
+        User user = userRepository.findByMobile(mobile)
+                .orElseThrow(() ->
+                        new RuntimeException("User not found"));
+
+        // 2. Find farmer profile
+        Farmer farmer = farmerRepository.findByUserId(user.getId())
+                .orElseThrow(() ->
+                        new RuntimeException("Farmer profile not found"));
+
+        // 3. Find booking
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() ->
+                        new RuntimeException("Booking not found"));
+
+        // 4. Check booking ownership
+        if (!booking.getFarmer().getId().equals(farmer.getId())) {
+
+            throw new RuntimeException(
+                    "You are not allowed to cancel this booking");
+        }
+
+        // 5. Check booking status
+        if (booking.getStatus() != BookingStatus.BOOKED) {
+
+            throw new RuntimeException(
+                    "Only BOOKED booking can be cancelled");
+        }
+
+        // 6. Get slot
+        Slot slot = booking.getSlot();
+
+        // 7. Restore slot capacity
+        double updatedBookedCapacity =
+                slot.getBookedCapacityKg()
+                        - booking.getGrainWeight();
+
+        // Prevent negative capacity
+        if (updatedBookedCapacity < 0) {
+            updatedBookedCapacity = 0;
+        }
+
+        slot.setBookedCapacityKg(
+                updatedBookedCapacity);
+
+        // 8. Make slot available again
+        if (slot.getBookedCapacityKg()
+                < slot.getCapacityKg()) {
+
+            slot.setStatus(SlotStatus.AVAILABLE);
+        }
+
+        // 9. Change booking status
+        booking.setStatus(
+                BookingStatus.CANCELLED);
+
+        // 10. Save slot
+        slotRepository.save(slot);
+
+        // 11. Save booking
+        Booking savedBooking =
+                bookingRepository.save(booking);
+
+        // 12. Return response
+        return mapToResponse(savedBooking);
+    }
+
 
 
     private BookingResponse mapToResponse(

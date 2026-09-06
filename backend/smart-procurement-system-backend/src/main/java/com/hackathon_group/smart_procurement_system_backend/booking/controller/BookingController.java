@@ -38,10 +38,13 @@ public class BookingController {
     // Get booking by ID
     @GetMapping("/{id}")
     public ResponseEntity<BookingResponse> getBooking(
-            @PathVariable Long id) {
+            @PathVariable Long id,
+            Authentication authentication) {
+
+        String mobile = authentication.getName();
 
         BookingResponse response =
-                bookingService.getBooking(id);
+                bookingService.getBooking(id, mobile);
 
         return ResponseEntity.ok(response);
     }
@@ -62,11 +65,31 @@ public class BookingController {
     // Get booking by token
     @GetMapping("/token/{tokenNumber}")
     public ResponseEntity<BookingResponse> getBookingByToken(
-            @PathVariable String tokenNumber) {
+            @PathVariable String tokenNumber,
+            Authentication authentication) {
+
+        String mobile = authentication.getName();
 
         BookingResponse response =
-                bookingService.getBookingByToken(tokenNumber);
+                bookingService.getBookingByToken(
+                        tokenNumber,
+                        mobile);
 
         return ResponseEntity.ok(response);
     }
+
+    @PatchMapping("/{id}/cancel")
+    public ResponseEntity<BookingResponse> cancelBooking(
+            @PathVariable Long id,
+            Authentication authentication) {
+
+        String mobile = authentication.getName();
+
+        BookingResponse response =
+                bookingService.cancelBooking(id, mobile);
+
+        return ResponseEntity.ok(response);
+    }
+
+
 }

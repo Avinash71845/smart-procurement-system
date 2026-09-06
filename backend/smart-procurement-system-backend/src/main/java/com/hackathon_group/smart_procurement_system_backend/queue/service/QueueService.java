@@ -1,6 +1,7 @@
 package com.hackathon_group.smart_procurement_system_backend.queue.service;
 
 import com.hackathon_group.smart_procurement_system_backend.booking.entity.Booking;
+import com.hackathon_group.smart_procurement_system_backend.booking.entity.BookingStatus;
 import com.hackathon_group.smart_procurement_system_backend.booking.repository.BookingRepository;
 import com.hackathon_group.smart_procurement_system_backend.queue.dto.QueueTokenResponse;
 import com.hackathon_group.smart_procurement_system_backend.queue.entity.QueueStatus;
@@ -31,6 +32,7 @@ public class QueueService {
                 .orElseThrow(() -> new RuntimeException("Booking not found with ID: " + bookingId));
 
         booking.setCheckInTime(LocalDateTime.now());
+        booking.setStatus(BookingStatus.CHECKED_IN);
         bookingRepository.save(booking);
 
         Integer nextTokenNumber = queueTokenRepository.findMaxTokenNumber() + 1;

@@ -35,6 +35,9 @@ build/
 # Local configuration
 src/main/resources/application-local.properties
 
+# Neon database configuration
+src/main/resources/application-neon.properties
+
 ### Environment / Secrets ###
 .env
 .env.*
