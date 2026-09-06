@@ -1,25 +1,19 @@
-import { useState } from 'react';
+
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import FarmerImage from "../../assets/heroimage.jpg";
 import {
   Sprout,
   CalendarDays,
   GitFork,
   Activity,
-  ShieldCheck,
   Scale,
   ClipboardList,
   BarChart3,
-  ChevronRight,
-  Menu,
-  X,
-  User,
   Building2,
-  CheckCircle2,
   Phone,
   Mail,
-  ArrowRight,
-  Users
+  ArrowRight
 } from 'lucide-react';
 
 const farmerFeatures = [
@@ -73,8 +67,8 @@ export default function Home() {
         style={{
           backgroundImage: `
             radial-gradient(ellipse at 80% 30%, rgba(209, 250, 229, 0.45) 0%, rgba(255,255,255,0) 70%),
-            linear-gradient(to bottom, rgba(255,255,255,0.7) 0%, rgba(248, 250, 247, 1) 100%),
-            url('https://images.unsplash.com/photo-1500937386664-56d1dfef3854?auto=format&fit=crop&w=2000&q=80')
+            linear-gradient(to bottom, rgba(255,255,255,0.1) 0%, rgba(248, 250, 247, 1) 100%),
+            url(${FarmerImage})
           `
         }}
       />
@@ -114,9 +108,12 @@ export default function Home() {
             <a href="#support" className="transition hover:text-[#14532d]">Help Desk</a>
           </nav>
 
-          
 
-         
+
+
+
+
+
         </div>
 
       </motion.header>
@@ -126,16 +123,16 @@ export default function Home() {
         <div className="text-center">
           <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-[#14532d]">
             <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-            Empowering Mandis & Farmers Nationwide
+            Empowering Farmers, Simplifying Procurement
           </div>
 
           <h1 className="mt-4 text-4xl font-extrabold tracking-tight text-gray-900 sm:text-5xl lg:text-[3.5rem] lg:leading-[1.15]">
-            Bridging Farmers & Mandi Operators <br />
-            <span className="text-[#14532d]">Through Digital Procurement</span>
+            Bridging Farmers & Procurement Centers <br />
+            <span className="text-[#14532d]"> Through Digital Technology</span>
           </h1>
 
           <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-gray-600 sm:text-lg">
-            A single unified platform designed to eliminate mandi congestion for farmers while streamlining verification, weighing, and reporting workflows for procurement officials.
+            A single unified platform designed to eliminate procurement congestion for farmers while streamlining verification, weighing, and reporting workflows for procurement officials.
           </p>
         </div>
 
@@ -180,21 +177,9 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="mt-8 flex gap-3">
-              <button 
-                onClick={() => navigate('/login')}
-                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#14532d] py-3 text-xs font-bold text-white shadow-md transition hover:bg-[#0f3e21]"
-              >
-                Farmer Login <ArrowRight className="h-3.5 w-3.5" />
-              </button>
-              <button 
-                onClick={() => navigate('/register')}
-                className="rounded-xl border border-gray-300 bg-white px-4 py-3 text-xs font-bold text-gray-700 transition hover:bg-gray-50"
-              >
-                Register
-              </button>
-            </div>
+            
           </motion.div>
+          
 
           {/* Card 2: Operator / Official Portal */}
           <motion.div 
@@ -234,23 +219,25 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="mt-8 flex gap-3">
-              <button 
-                onClick={() => navigate('/operatorlogin')}
-                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gray-900 py-3 text-xs font-bold text-white shadow-md transition hover:bg-gray-800"
-              >
-                Mandi Staff Login <ArrowRight className="h-3.5 w-3.5" />
-              </button>
-              <button 
-                onClick={() => navigate('/operatorregistration')}
-                className="rounded-xl border border-gray-300 bg-white px-4 py-3 text-xs font-bold text-gray-700 transition hover:bg-gray-50"
-              >
-                Operator Registration
-              </button>
-            </div>
+           
           </motion.div>
+          
 
         </section>
+        <div className="mt-8 flex items-center justify-center gap-5">
+  <button 
+    onClick={() => navigate('/login')}
+    className="flex min-w-[170px] items-center justify-center gap-2 rounded-xl bg-[#14532d] px-6 py-3.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-[#0f3e21] hover:shadow-md active:scale-[0.98]"
+  >
+    Login <ArrowRight className="h-4 w-4" />
+  </button>
+  <button 
+    onClick={() => navigate('/register')}
+    className="flex min-w-[170px] items-center justify-center rounded-xl border border-gray-300 bg-white px-6 py-3.5 text-sm font-semibold text-gray-700 shadow-sm transition-all hover:border-gray-400 hover:bg-gray-50 active:scale-[0.98]"
+  >
+    Register
+  </button>
+</div>
 
         {/* System Value Indicators */}
         <div id="about" className="mt-16 grid grid-cols-2 gap-4 sm:grid-cols-4">

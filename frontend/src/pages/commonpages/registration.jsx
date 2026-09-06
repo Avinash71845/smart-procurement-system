@@ -6,66 +6,132 @@ import {
   User,
   Phone,
   Lock,
-  Landmark,
-  FileText,
-  ShieldCheck,
+  Tractor,
+  UserCheck,
   ChevronRight,
-  ArrowLeft,
-  CheckCircle2
+  Eye,
+  EyeOff,
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
 
 export default function Registration() {
   const navigate = useNavigate();
-  const [step, setStep] = useState(1); // 1: Details, 2: OTP Verification
 
-  // Form State (Farmer only)
   const [formData, setFormData] = useState({
-    fullName: '',
-    phone: '',
+    name: '',
+    mobile: '',
     password: '',
     confirmPassword: '',
-    state: 'Bihar',
-    district: '',
-    kisanId: '',
-    landSize: '',
-    primaryCrop: 'Wheat (गेहूं)',
-    bankAccount: '',
-    ifscCode: ''
+    role: 'FARMER' // 'FARMER' | 'OPERATOR'
   });
 
-  const [otp, setOtp] = useState(['', '', '', '']);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    if (errorMessage) setErrorMessage('');
   };
 
-  const handleOtpChange = (index, value) => {
-    if (value.length > 1) return;
-    const newOtp = [...otp];
-    newOtp[index] = value;
-    setOtp(newOtp);
-
-    // Auto-advance cursor to next input box
-    if (value && index < 3) {
-      const nextInput = document.getElementById(`otp-${index + 1}`);
-      if (nextInput) nextInput.focus();
-    }
-  };
-
-  const handleSubmitStep1 = (e) => {
+  const handleRegisterSubmit = async (e) => {
     e.preventDefault();
-    if (formData.password !== formData.confirmPassword) {
-      alert('Passwords do not match. Please verify.');
+    setErrorMessage('');
+    setSuccessMessage('');
+
+    // Frontend Validations
+    if (!formData.name.trim()) {
+      setErrorMessage('कृपया अपना पूरा नाम दर्ज करें (Please enter your full name).');
       return;
     }
-    setStep(2);
-  };
 
-  const handleFinalSubmit = (e) => {
-    e.preventDefault();
-    // Simulate successful registration and redirect
-    navigate('/registrationsucess');
+    if (formData.mobile.length !== 10 || !/^\d{10}$/.test(formData.mobile)) {
+      setErrorMessage('कृपया 10 अंकों का वैध मोबाइल नंबर दर्ज करें (Please enter a valid 10-digit mobile number).');
+      return;
+    }
+
+    if (formData.password.length < 6) {
+      setErrorMessage('Password must be at least 6 characters long (पासवर्ड कम से कम 6 अक्षरों का होना चाहिए).');
+      return;
+    }
+
+    if (formData.password !== formData.confirmPassword) {
+      setErrorMessage('Passwords do not match (पासवर्ड मेल नहीं खाते).');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const selectedRole = formData.role.toUpperCase();
+
+      const response = await fetch('/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: formData.name.trim(),
+          mobile: formData.mobile.trim(),
+          password: formData.password,
+          role: selectedRole,
+        }),
+      });
+
+      // Handle JSON vs Plain text responses gracefully
+      const contentType = response.headers.get('content-type');
+      let data = {};
+      if (contentType && contentType.includes('application/json')) {
+        data = await response.json();
+      } else {
+        const text = await response.text();
+        data = { message: text };
+      }
+
+      if (!response.ok) {
+        let extractedError = data?.message || data?.error;
+
+        // Catch duplicate key SQL exception details from raw server exceptions
+        if (
+          typeof extractedError === 'string' &&
+          (extractedError.includes('duplicate key') || extractedError.includes('already exists'))
+        ) {
+          extractedError = 'यह मोबाइल नंबर पहले से पंजीकृत है (This mobile number is already registered).';
+        }
+
+        throw new Error(extractedError || `Registration failed with status code ${response.status}`);
+      }
+
+      // 1. Persist User Session in LocalStorage
+      const activeRole = (data.role || selectedRole).toLowerCase();
+      if (data.token) localStorage.setItem('token', data.token);
+      localStorage.setItem('userRole', activeRole);
+      localStorage.setItem('userMobile', data.mobile || formData.mobile.trim());
+      localStorage.setItem('userName', data.name || formData.name.trim());
+      if (data.id || data.userId) localStorage.setItem('userId', data.id || data.userId);
+
+      // 2. Set dynamic success banner
+      const destinationTitle = activeRole === 'operator' ? 'Operator Portal' : 'Kisan Portal';
+      setSuccessMessage(`पंजीकरण सफल! ${destinationTitle} पर भेजा जा रहा है... (Redirecting to ${destinationTitle}...)`);
+
+      // 3. Dynamic Routing: Operator -> /operatorhome, Farmer -> /farmerhome
+      setTimeout(() => {
+        if (activeRole === 'operator') {
+          navigate('/operator-update-profile');
+        } else {
+          navigate('/farmer-update-profile');
+        }
+      }, 1400);
+
+    } catch (error) {
+      console.error('Registration error:', error);
+      setErrorMessage(error.message || 'Cannot connect to backend. Please check your connection.');
+      setLoading(false);
+    }
   };
 
   return (
@@ -73,24 +139,24 @@ export default function Registration() {
       
       {/* Background Soft Glow */}
       <div 
-        className="absolute inset-0 z-0 h-[480px] w-full bg-cover bg-center opacity-80 pointer-events-none"
+        className="pointer-events-none absolute inset-0 z-0 h-[480px] w-full bg-cover bg-center opacity-85"
         style={{
-          backgroundImage: `radial-gradient(ellipse at 50% 15%, rgba(212, 245, 195, 0.55) 0%, rgba(246, 249, 245, 1) 75%)`
+          backgroundImage: `radial-gradient(ellipse at 50% 15%, rgba(212, 245, 195, 0.6) 0%, rgba(246, 249, 245, 1) 75%)`
         }}
       />
 
-      {/* --- Top Navigation Header --- */}
-      <header className="relative z-10 mx-auto flex max-w-7xl items-center justify-between px-6 py-4 lg:px-12">
+      {/* Navigation Header */}
+      <header className="relative z-10 mx-auto flex max-w-7xl items-center justify-between px-6 py-5 lg:px-12">
         <Link to="/" className="flex items-center gap-2.5">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0d4624] text-white shadow-sm">
-            <Sprout className="h-5 w-5 text-[#00e699]" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#14532d] text-white shadow-sm">
+            <Sprout className="h-5 w-5 text-emerald-400" />
           </div>
           <div>
             <span className="block text-lg font-extrabold leading-tight tracking-tight text-[#14532d]">
               SmartProcure
             </span>
             <span className="block text-[10px] font-semibold tracking-wider text-emerald-700 uppercase">
-              Govt. Mandi Portal
+              {formData.role === 'FARMER' ? 'Kisan Portal • किसान पोर्टल' : 'Operator Portal • ऑपरेटर पोर्टल'}
             </span>
           </div>
         </Link>
@@ -103,251 +169,210 @@ export default function Registration() {
         </Link>
       </header>
 
-      {/* --- Main Registration Form Container --- */}
-      <main className="relative z-10 mx-auto max-w-2xl px-6 pt-4 pb-16">
+      {/* Main Registration Box */}
+      <main className="relative z-10 mx-auto max-w-md px-6 pt-4 pb-16">
         <motion.div
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
-          className="rounded-3xl border border-emerald-900/10 bg-white/95 p-6 shadow-xl backdrop-blur-md sm:p-10"
+          className="rounded-3xl border border-emerald-900/10 bg-white/95 p-7 shadow-xl backdrop-blur-md sm:p-9"
         >
-          {/* Header Title */}
+          {/* Role Selection Tabs */}
+          <div className="mb-5 flex rounded-xl bg-gray-100 p-1">
+            <button
+              type="button"
+              disabled={loading}
+              onClick={() => {
+                setFormData((prev) => ({ ...prev, role: 'FARMER' }));
+                setErrorMessage('');
+              }}
+              className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-xs font-bold transition-all ${
+                formData.role === 'FARMER'
+                  ? 'bg-[#14532d] text-white shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Tractor className="h-3.5 w-3.5" />
+              Farmer (किसान)
+            </button>
+            <button
+              type="button"
+              disabled={loading}
+              onClick={() => {
+                setFormData((prev) => ({ ...prev, role: 'OPERATOR' }));
+                setErrorMessage('');
+              }}
+              className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-xs font-bold transition-all ${
+                formData.role === 'OPERATOR'
+                  ? 'bg-[#14532d] text-white shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <UserCheck className="h-3.5 w-3.5" />
+              Operator (ऑपरेटर)
+            </button>
+          </div>
+
+          {/* Heading */}
           <div className="text-center">
             <h1 className="text-2xl font-black tracking-tight text-gray-900 sm:text-3xl">
-              Farmer Registration
+              {formData.role === 'FARMER' ? 'किसान पंजीकरण' : 'ऑपरेटर पंजीकरण'}
             </h1>
-            <p className="mt-1.5 text-xs text-gray-500">
-              Create your account to book mandi tokens, track live queues & receive DBT payments.
+            <p className="mt-1 text-xs text-gray-500">
+              {formData.role === 'FARMER'
+                ? 'Create an account to book mandi tokens, track live queues, and receive MSP payments.'
+                : 'Create an operator terminal account to manage mandi scale entries and gate passes.'}
             </p>
           </div>
 
-          {/* Form Step Carousel */}
-          <AnimatePresence mode="wait">
-            {step === 1 ? (
-              <motion.form
-                key="step1"
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 10 }}
-                onSubmit={handleSubmitStep1}
-                className="mt-6 space-y-4"
+          {/* Success Banner */}
+          <AnimatePresence>
+            {successMessage && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="mt-4 flex items-center gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs font-semibold text-emerald-800"
               >
-                {/* Full Name & Mobile */}
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div>
-                    <label className="text-xs font-bold text-gray-700">
-                      Farmer Full Name (किसान का नाम)
-                    </label>
-                    <div className="relative mt-1.5">
-                      <User className="absolute left-3.5 top-3 h-4 w-4 text-gray-400" />
-                      <input
-                        type="text"
-                        name="fullName"
-                        required
-                        value={formData.fullName}
-                        onChange={handleInputChange}
-                        placeholder="e.g. Ramesh Patel"
-                        className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-xs text-gray-900 shadow-sm focus:border-emerald-600 focus:outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-bold text-gray-700">
-                      Mobile Number (मोबाइल नंबर)
-                    </label>
-                    <div className="relative mt-1.5">
-                      <Phone className="absolute left-3.5 top-3 h-4 w-4 text-gray-400" />
-                      <input
-                        type="tel"
-                        name="phone"
-                        required
-                        maxLength={10}
-                        value={formData.phone}
-                        onChange={handleInputChange}
-                        placeholder="98765 43210"
-                        className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-xs text-gray-900 shadow-sm focus:border-emerald-600 focus:outline-none"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Farmer Details */}
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div>
-                    <label className="text-xs font-bold text-gray-700">
-                      Kisan Credit ID / Identifier Last 4
-                    </label>
-                    <div className="relative mt-1.5">
-                      <FileText className="absolute left-3.5 top-3 h-4 w-4 text-gray-400" />
-                      <input
-                        type="text"
-                        name="kisanId"
-                        required
-                        value={formData.kisanId}
-                        onChange={handleInputChange}
-                        placeholder="KCC-984210"
-                        className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-xs text-gray-900 shadow-sm focus:border-emerald-600 focus:outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-bold text-gray-700">
-                      Total Land Holding (Acres)
-                    </label>
-                    <div className="relative mt-1.5">
-                      <Sprout className="absolute left-3.5 top-3 h-4 w-4 text-gray-400" />
-                      <input
-                        type="number"
-                        name="landSize"
-                        required
-                        step="0.1"
-                        value={formData.landSize}
-                        onChange={handleInputChange}
-                        placeholder="e.g. 3.5"
-                        className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-xs text-gray-900 shadow-sm focus:border-emerald-600 focus:outline-none"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Bank Details for Direct MSP Transfer */}
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div>
-                    <label className="text-xs font-bold text-gray-700">
-                      Bank Account No. (Direct Benefit Transfer)
-                    </label>
-                    <div className="relative mt-1.5">
-                      <Landmark className="absolute left-3.5 top-3 h-4 w-4 text-gray-400" />
-                      <input
-                        type="text"
-                        name="bankAccount"
-                        required
-                        value={formData.bankAccount}
-                        onChange={handleInputChange}
-                        placeholder="60210001004523"
-                        className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-xs text-gray-900 shadow-sm focus:border-emerald-600 focus:outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-bold text-gray-700">
-                      Bank IFSC Code
-                    </label>
-                    <input
-                      type="text"
-                      name="ifscCode"
-                      required
-                      value={formData.ifscCode}
-                      onChange={handleInputChange}
-                      placeholder="SBIN0001234"
-                      className="mt-1.5 w-full uppercase rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-xs text-gray-900 shadow-sm focus:border-emerald-600 focus:outline-none"
-                    />
-                  </div>
-                </div>
-
-                {/* Password Fields */}
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div>
-                    <label className="text-xs font-bold text-gray-700">Create Password</label>
-                    <div className="relative mt-1.5">
-                      <Lock className="absolute left-3.5 top-3 h-4 w-4 text-gray-400" />
-                      <input
-                        type="password"
-                        name="password"
-                        required
-                        value={formData.password}
-                        onChange={handleInputChange}
-                        placeholder="••••••••"
-                        className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-xs text-gray-900 shadow-sm focus:border-emerald-600 focus:outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-bold text-gray-700">Confirm Password</label>
-                    <div className="relative mt-1.5">
-                      <Lock className="absolute left-3.5 top-3 h-4 w-4 text-gray-400" />
-                      <input
-                        type="password"
-                        name="confirmPassword"
-                        required
-                        value={formData.confirmPassword}
-                        onChange={handleInputChange}
-                        placeholder="••••••••"
-                        className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-xs text-gray-900 shadow-sm focus:border-emerald-600 focus:outline-none"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Submit Action */}
-                <button
-                  type="submit"
-                  className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-[#14532d] py-3.5 text-xs font-bold text-white shadow-md transition hover:bg-[#0f3e21]"
-                >
-                  Proceed to OTP Verification
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-              </motion.form>
-            ) : (
-              /* --- Step 2: OTP Verification Screen --- */
-              <motion.form
-                key="step2"
-                initial={{ opacity: 0, x: 10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -10 }}
-                onSubmit={handleFinalSubmit}
-                className="mt-6 space-y-6 text-center"
-              >
-                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-[#14532d]">
-                  <ShieldCheck className="h-7 w-7" />
-                </div>
-
-                <div>
-                  <h3 className="text-base font-bold text-gray-900">Verify Mobile OTP</h3>
-                  <p className="mt-1 text-xs text-gray-500">
-                    Enter the 4-digit code sent to <span className="font-semibold text-gray-800">+91 {formData.phone || '98765 43210'}</span>
-                  </p>
-                </div>
-
-                {/* 4-Box OTP Input */}
-                <div className="flex justify-center gap-3">
-                  {otp.map((digit, idx) => (
-                    <input
-                      key={idx}
-                      id={`otp-${idx}`}
-                      type="text"
-                      maxLength={1}
-                      value={digit}
-                      onChange={(e) => handleOtpChange(idx, e.target.value)}
-                      className="h-12 w-12 rounded-xl border border-gray-200 bg-white text-center text-lg font-bold text-gray-900 shadow-sm focus:border-emerald-600 focus:outline-none"
-                    />
-                  ))}
-                </div>
-
-                <div className="space-y-3">
-                  <button
-                    type="submit"
-                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#14532d] py-3.5 text-xs font-bold text-white shadow-md transition hover:bg-[#0f3e21]"
-                  >
-                    Confirm & Complete Registration
-                    <CheckCircle2 className="h-4 w-4" />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setStep(1)}
-                    className="flex w-full items-center justify-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-gray-800"
-                  >
-                    <ArrowLeft className="h-3.5 w-3.5" /> Back to Edit Details
-                  </button>
-                </div>
-              </motion.form>
+                <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
+                <span>{successMessage}</span>
+              </motion.div>
             )}
           </AnimatePresence>
+
+          {/* Error Banner */}
+          <AnimatePresence>
+            {errorMessage && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="mt-4 flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-semibold text-rose-700"
+              >
+                <AlertCircle className="h-5 w-5 text-rose-600 shrink-0 mt-0.5" />
+                <span>{errorMessage}</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Registration Form */}
+          <form onSubmit={handleRegisterSubmit} className="mt-6 space-y-4">
+            
+            {/* Full Name */}
+            <div>
+              <label className="text-xs font-bold text-gray-700">
+                Full Name (पूरा नाम)
+              </label>
+              <div className="relative mt-1.5">
+                <User className="absolute left-3.5 top-3 h-4 w-4 text-gray-400" />
+                <input
+                  type="text"
+                  name="name"
+                  required
+                  value={formData.name}
+                  onChange={handleInputChange}
+                  placeholder="e.g. Ramesh Kumar"
+                  className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-xs font-semibold text-gray-900 shadow-sm focus:border-emerald-600 focus:outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Mobile Number */}
+            <div>
+              <label className="text-xs font-bold text-gray-700">
+                Mobile Number (10 अंकों का मोबाइल नंबर)
+              </label>
+              <div className="relative mt-1.5">
+                <Phone className="absolute left-3.5 top-3 h-4 w-4 text-gray-400" />
+                <input
+                  type="tel"
+                  name="mobile"
+                  required
+                  maxLength={10}
+                  value={formData.mobile}
+                  onChange={handleInputChange}
+                  placeholder="9876543210"
+                  className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-xs font-semibold text-gray-900 shadow-sm focus:border-emerald-600 focus:outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Password */}
+            <div>
+              <label className="text-xs font-bold text-gray-700">Create Password (पासवर्ड)</label>
+              <div className="relative mt-1.5">
+                <Lock className="absolute left-3.5 top-3 h-4 w-4 text-gray-400" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  name="password"
+                  required
+                  value={formData.password}
+                  onChange={handleInputChange}
+                  placeholder="At least 6 characters"
+                  className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-10 text-xs text-gray-900 shadow-sm focus:border-emerald-600 focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3.5 top-3 text-gray-400 hover:text-gray-600"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+
+            {/* Confirm Password */}
+            <div>
+              <label className="text-xs font-bold text-gray-700">Confirm Password (पासवर्ड की पुष्टि करें)</label>
+              <div className="relative mt-1.5">
+                <Lock className="absolute left-3.5 top-3 h-4 w-4 text-gray-400" />
+                <input
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  name="confirmPassword"
+                  required
+                  value={formData.confirmPassword}
+                  onChange={handleInputChange}
+                  placeholder="Re-enter password"
+                  className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-10 text-xs text-gray-900 shadow-sm focus:border-emerald-600 focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3.5 top-3 text-gray-400 hover:text-gray-600"
+                >
+                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+
+            {/* Submit Button */}
+            <button
+              type="submit"
+              disabled={loading || Boolean(successMessage)}
+              className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-[#14532d] py-3.5 text-xs font-bold text-white shadow-md transition hover:bg-[#0f3e21] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-75"
+            >
+              {loading ? (
+                <span>पंजीकरण किया जा रहा है... (Registering...)</span>
+              ) : successMessage ? (
+                <span>Redirecting...</span>
+              ) : (
+                <>
+                  खाता बनाएं (Register & Enter {formData.role === 'FARMER' ? 'Kisan Portal' : 'Operator Portal'})
+                  <ChevronRight className="h-4 w-4" />
+                </>
+              )}
+            </button>
+          </form>
+
+          {/* Footer Back Link */}
+          <div className="mt-5 border-t border-gray-100 pt-4 text-center">
+            <p className="text-xs text-gray-500">
+              Already have an account?{' '}
+              <Link to="/login" className="font-bold text-[#14532d] underline hover:text-[#0f3e21]">
+                लॉगिन करें (Sign In Here)
+              </Link>
+            </p>
+          </div>
         </motion.div>
       </main>
     </div>

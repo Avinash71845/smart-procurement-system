@@ -134,7 +134,7 @@ export default function FarmerHome() {
               className="flex items-center gap-1.5 rounded-lg border border-emerald-900/10 bg-emerald-50/60 px-3.5 py-2 text-xs font-bold text-[#14532d] transition hover:bg-emerald-100/70"
             >
               <Building2 className="h-3.5 w-3.5" />
-              Login
+              Farmer
             </button>
 
             <div className="h-5 w-[1px] bg-gray-200" />
@@ -142,13 +142,7 @@ export default function FarmerHome() {
            
               
 
-            <button 
-              onClick={() => navigate('/register')}
-              className="flex items-center gap-1.5 rounded-lg bg-[#14532d] px-4 py-2 text-xs font-bold text-white shadow-sm transition-all duration-150 hover:bg-[#0f3e21] active:scale-95"
-            >
-              <User className="h-3.5 w-3.5" />
-              New Registration
-            </button>
+           
           </div>
 
           {/* Mobile Menu Button */}
