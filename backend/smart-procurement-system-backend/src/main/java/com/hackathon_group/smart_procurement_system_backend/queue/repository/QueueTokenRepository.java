@@ -27,4 +27,6 @@ public interface QueueTokenRepository extends JpaRepository<QueueToken, Long> {
 
     // Waiting list screen ke liye
     List<QueueToken> findByStatusOrderByCheckInTimeAsc(QueueStatus status);
+
+    Optional<QueueToken> findByBookingId(Long bookingId);
 }

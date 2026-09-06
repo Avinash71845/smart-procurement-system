@@ -22,10 +22,23 @@ public class QueueController {
         return ResponseEntity.ok(queueService.checkIn(request.getBookingId()));
     }
 
+
     // 2. Operator Screen: "Call Next" Button
     @PostMapping("/call-next")
     public ResponseEntity<QueueTokenResponse> callNext() {
         return ResponseEntity.ok(queueService.callNext());
+    }
+
+    // 3. Operator: Start processing the farmer
+    @PostMapping("/start")
+    public ResponseEntity<QueueTokenResponse> startProcessing(
+            @RequestBody CheckInRequest request) {
+
+        QueueTokenResponse response =
+                queueService.startProcessing(
+                        request.getBookingId());
+
+        return ResponseEntity.ok(response);
     }
 
     // 3. Mandi TV Screen / Polling Endpoint (Har 3-5 sec me hit hoga)
@@ -42,5 +55,17 @@ public class QueueController {
     @GetMapping("/waiting")
     public ResponseEntity<List<QueueTokenResponse>> getWaitingQueue() {
         return ResponseEntity.ok(queueService.getWaitingQueue());
+    }
+
+// after completion
+    @PostMapping("/complete")
+    public ResponseEntity<QueueTokenResponse> completeProcurement(
+            @RequestBody CheckInRequest request) {
+
+        QueueTokenResponse response =
+                queueService.completeProcurement(
+                        request.getBookingId());
+
+        return ResponseEntity.ok(response);
     }
 }

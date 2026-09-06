@@ -74,6 +74,77 @@ public class QueueService {
                 .toList();
     }
 
+    // Operator starts processing the farmer.
+// CALLED → IN_PROGRESS
+    @Transactional
+    public QueueTokenResponse startProcessing(Long bookingId) {
+
+        // Find the booking.
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() ->
+                        new RuntimeException(
+                                "Booking not found with ID: " + bookingId));
+
+        // Find the queue token for this booking.
+        QueueToken queueToken = queueTokenRepository
+                .findByBookingId(bookingId)
+                .orElseThrow(() ->
+                        new RuntimeException(
+                                "Queue token not found for this booking"));
+
+        // Farmer must first be CALLED by the operator.
+        if (queueToken.getStatus() != QueueStatus.CALLED) {
+            throw new RuntimeException(
+                    "Processing can only be started for a CALLED farmer");
+        }
+
+        // Queue status changes from CALLED to IN_PROGRESS.
+        queueToken.setStatus(QueueStatus.IN_PROGRESS);
+
+        QueueToken updatedToken =
+                queueTokenRepository.save(queueToken);
+
+        return mapToResponse(updatedToken);
+    }
+
+    @Transactional
+    public QueueTokenResponse completeProcurement(Long bookingId) {
+
+        // Find the booking using the booking ID.
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() ->
+                        new RuntimeException(
+                                "Booking not found with ID: " + bookingId));
+
+        // Find the queue token belonging to this booking.
+        QueueToken queueToken = queueTokenRepository
+                .findByBookingId(bookingId)
+                .orElseThrow(() ->
+                        new RuntimeException(
+                                "Queue token not found for this booking"));
+
+        // Procurement can only be completed when the farmer
+        // is actually being processed.
+        if (queueToken.getStatus() != QueueStatus.IN_PROGRESS) {
+            throw new RuntimeException(
+                    "Procurement can only be completed for a farmer IN_PROGRESS");
+        }
+
+        // Queue process is now finished.
+        queueToken.setStatus(QueueStatus.COMPLETED);
+
+        // Booking is also marked as procurement completed.
+        // Payment creation will depend on this status.
+        booking.setStatus(BookingStatus.PROCUREMENT_COMPLETED);
+
+        bookingRepository.save(booking);
+
+        QueueToken savedToken =
+                queueTokenRepository.save(queueToken);
+
+        return mapToResponse(savedToken);
+    }
+
     // Helper: Convert Entity -> DTO
     private QueueTokenResponse mapToResponse(QueueToken token) {
         Booking b = token.getBooking();
