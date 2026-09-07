@@ -24,6 +24,8 @@ import WeighingQualityBroadcast from "./pages/Procurement_Operator/weighing";
 import PaymentPushDbtSync from "./pages/Procurement_Operator/paymentstatusupdate";
 import FarmerUpdateProfile from "./pages/commonpages/farmerupdateprofile";
 import OperatorUpdateProfile from "./pages/commonpages/operatorupdateprofile";
+import  OperatorHeaderWithSlotModal from "./pages/Procurement_Operator/createslot"
+
 
 function App() {
   return (
@@ -68,6 +70,7 @@ function App() {
         <Route path="/queue" element={<QueueStatus />} />
         <Route path="/farmer-update-profile" element={<FarmerUpdateProfile />} />
         <Route path="/operator-update-profile" element={<OperatorUpdateProfile />} />
+         <Route path="/operator/create-slot" element={<OperatorHeaderWithSlotModal />} />
       </Routes>
     </BrowserRouter>
   );
