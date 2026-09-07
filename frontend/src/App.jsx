@@ -24,8 +24,7 @@ import WeighingQualityBroadcast from "./pages/Procurement_Operator/weighing";
 import PaymentPushDbtSync from "./pages/Procurement_Operator/paymentstatusupdate";
 import FarmerUpdateProfile from "./pages/commonpages/farmerupdateprofile";
 import OperatorUpdateProfile from "./pages/commonpages/operatorupdateprofile";
-import  OperatorHeaderWithSlotModal from "./pages/Procurement_Operator/createslot"
-
+import OperatorHeaderWithSlotModal from "./pages/Procurement_Operator/createslot";
 
 function App() {
   return (
@@ -51,7 +50,11 @@ function App() {
         <Route path="/farmerhome" element={<FarmerHome />} />
         <Route path="/operatorhome" element={<OperatorHome />} />
         <Route path="/operatorLogin" element={<OperatorLogin />} />
-        <Route path="/operatorregistration" element={<OperatorRegistration />} />
+        <Route path="/operator-login" element={<OperatorLogin />} />
+        <Route
+          path="/operatorregistration"
+          element={<OperatorRegistration />}
+        />
         <Route path="/track-live-queue" element={<QueueStatus />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Registration />} />
@@ -64,13 +67,25 @@ function App() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/slot-approve" element={<SlotApprove />} />
         <Route path="/queue-manage" element={<QueueManage />} />
-        <Route path="/weighing-details" element={<WeighingQualityBroadcast />} />
+        <Route
+          path="/weighing-details"
+          element={<WeighingQualityBroadcast />}
+        />
         <Route path="/payment-give" element={<PaymentPushDbtSync />} />
         <Route path="/slot-booking" element={<SlotBooking />} />
         <Route path="/queue" element={<QueueStatus />} />
-        <Route path="/farmer-update-profile" element={<FarmerUpdateProfile />} />
-        <Route path="/operator-update-profile" element={<OperatorUpdateProfile />} />
-         <Route path="/operator/create-slot" element={<OperatorHeaderWithSlotModal />} />
+        <Route
+          path="/farmer-update-profile"
+          element={<FarmerUpdateProfile />}
+        />
+        <Route
+          path="/operator-update-profile"
+          element={<OperatorUpdateProfile />}
+        />
+        <Route
+          path="/operator/create-slot"
+          element={<OperatorHeaderWithSlotModal />}
+        />
       </Routes>
     </BrowserRouter>
   );

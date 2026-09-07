@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { motion } from "framer-motion";
 import {
   Building2,
   ShieldCheck,
@@ -9,46 +9,67 @@ import {
   ArrowRight,
   HelpCircle,
   CheckCircle2,
-  AlertCircle
-} from 'lucide-react';
+  AlertCircle,
+} from "lucide-react";
 
 export default function OperatorLogin() {
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
-    employeeId: '',
-    password: '',
-    adminPasscode: '',
-    centerCode: ''
+    employeeId: "",
+    password: "",
+    adminPasscode: "",
+    centerCode: "",
   });
 
   const [showPasscodeHelp, setShowPasscodeHelp] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
+    setErrorMessage("");
     setIsLoading(true);
 
-    // Simulate authentication and route to operator dashboard
-    setTimeout(() => {
+    try {
+      const response = await fetch("http://localhost:8080/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mobile: formData.employeeId.trim(),
+          password: formData.password,
+        }),
+      });
+
+      const token = (await response.text()).trim();
+      if (!response.ok || !token) {
+        throw new Error(token || `Login failed (${response.status})`);
+      }
+
+      localStorage.setItem("OPERATOR_JWT", token.replace(/^"|"$/g, ""));
+      navigate("/operatorhome");
+    } catch (error) {
+      setErrorMessage(
+        error.message ||
+          "Unable to sign in. Check the backend and credentials.",
+      );
+    } finally {
       setIsLoading(false);
-      navigate('/operatorhome');
-    }, 800);
+    }
   };
 
   return (
     <div className="relative min-h-screen w-full bg-[#f6f9f5] font-sans text-gray-800 antialiased selection:bg-emerald-200 selection:text-emerald-900">
-      
       {/* Background Soft Glow */}
       <div
         className="absolute inset-0 z-0 h-[480px] w-full bg-cover bg-center opacity-80 pointer-events-none"
         style={{
-          backgroundImage: `radial-gradient(ellipse at 50% 15%, rgba(212, 245, 195, 0.55) 0%, rgba(246, 249, 245, 1) 75%)`
+          backgroundImage: `radial-gradient(ellipse at 50% 15%, rgba(212, 245, 195, 0.55) 0%, rgba(246, 249, 245, 1) 75%)`,
         }}
       />
 
@@ -72,7 +93,8 @@ export default function OperatorLogin() {
           to="/login"
           className="flex items-center gap-1.5 text-xs font-bold text-gray-600 transition hover:text-[#14532d]"
         >
-          Farmer Portal <span className="text-[#14532d] underline">Switch Here</span>
+          Farmer Portal{" "}
+          <span className="text-[#14532d] underline">Switch Here</span>
         </Link>
       </header>
 
@@ -101,7 +123,7 @@ export default function OperatorLogin() {
             {/* Employee ID */}
             <div>
               <label className="text-xs font-bold text-gray-700">
-                Official Employee ID
+                Official Mobile Number
               </label>
               <div className="relative mt-1.5">
                 <ShieldCheck className="absolute left-3.5 top-3 h-4 w-4 text-gray-400" />
@@ -111,11 +133,17 @@ export default function OperatorLogin() {
                   required
                   value={formData.employeeId}
                   onChange={handleInputChange}
-                  placeholder="APMC-EMP-4091"
-                  className="w-full uppercase rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-xs text-gray-900 shadow-sm focus:border-emerald-600 focus:outline-none"
+                  placeholder="10-digit mobile number"
+                  className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-xs text-gray-900 shadow-sm focus:border-emerald-600 focus:outline-none"
                 />
               </div>
             </div>
+
+            {errorMessage && (
+              <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-800">
+                {errorMessage}
+              </div>
+            )}
 
             {/* Mandi / Center Code */}
             <div>
@@ -139,7 +167,9 @@ export default function OperatorLogin() {
             {/* Password */}
             <div>
               <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-gray-700">Password</label>
+                <label className="text-xs font-bold text-gray-700">
+                  Password
+                </label>
                 <Link
                   to="/forgot-password"
                   className="text-[11px] font-semibold text-emerald-700 hover:underline"
@@ -192,7 +222,8 @@ export default function OperatorLogin() {
                 <div className="mt-2 flex items-start gap-2 rounded-lg bg-emerald-50 p-2.5 text-[11px] text-emerald-900 border border-emerald-100">
                   <AlertCircle className="h-4 w-4 shrink-0 text-emerald-700" />
                   <span>
-                    The daily authorization passcode is issued every morning by the Mandi Secretary or Center Supervisor.
+                    The daily authorization passcode is issued every morning by
+                    the Mandi Secretary or Center Supervisor.
                   </span>
                 </div>
               )}

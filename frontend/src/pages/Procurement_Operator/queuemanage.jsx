@@ -1,523 +1,430 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
-  Building2,
-  GitFork,
-  Search,
-  CheckCircle2,
-  Clock,
   ArrowLeft,
-  Truck,
-  BellRing,
+  Building2,
+  CheckCircle2,
+  Clock3,
+  LoaderCircle,
   Megaphone,
-  Radio,
-  QrCode,
-  Scale,
+  PhoneCall,
+  Play,
   RefreshCw,
-  Send,
+  Search,
+  SquareCheckBig,
   UserCheck,
-  AlertTriangle,
-  Layers
-} from 'lucide-react';
+  Users,
+} from "lucide-react";
+import {
+  callNextFarmer,
+  checkInBooking,
+  completeQueueProcessing,
+  getCurrentQueue,
+  getWaitingQueue,
+  startQueueProcessing,
+} from "../../api/queueApi";
 
-const initialYardQueue = [
-  {
-    id: 'Q-01',
-    tokenId: 'TKN-2026-8837',
-    farmerName: 'Baldev Singh',
-    phone: '+91 98765 11001',
-    vehicleNo: 'HR-05-CD-3312',
-    crop: 'Wheat (Grade A) - 60 Qtl',
-    status: 'Serving', // 'Serving' | 'Called' | 'Queued' | 'Gate Waiting'
-    assignedBay: 'Weigh Bay 01',
-    gateCleared: true,
-    lastNotified: '09:40 AM',
-    calloutCount: 2
-  },
-  {
-    id: 'Q-02',
-    tokenId: 'TKN-2026-8838',
-    farmerName: 'Gurpreet Singh',
-    phone: '+91 94160 22334',
-    vehicleNo: 'HR-05-AA-9912',
-    crop: 'Wheat (Grade A) - 40 Qtl',
-    status: 'Called',
-    assignedBay: 'Weigh Bay 02',
-    gateCleared: true,
-    lastNotified: '09:55 AM',
-    calloutCount: 1
-  },
-  {
-    id: 'Q-03',
-    tokenId: 'TKN-2026-8839',
-    farmerName: 'Satish Kumar',
-    phone: '+91 98120 77889',
-    crop: 'Mustard Seeds - 25 Qtl',
-    status: 'Queued',
-    assignedBay: 'Bay 02 (Next in Line)',
-    gateCleared: true,
-    lastNotified: 'None',
-    calloutCount: 0
-  },
-  {
-    id: 'Q-04',
-    tokenId: 'TKN-2026-8841',
-    farmerName: 'Ramesh Patel',
-    phone: '+91 98765 43210',
-    crop: 'Wheat (Grade A) - 45 Qtl',
-    status: 'Queued',
-    assignedBay: 'Bay 01 (Queue Pos #2)',
-    gateCleared: true,
-    lastNotified: 'None',
-    calloutCount: 0
-  },
-  {
-    id: 'Q-05',
-    tokenId: 'TKN-2026-8844',
-    farmerName: 'Virender Sharma',
-    phone: '+91 97280 55661',
-    crop: 'Paddy (Common) - 50 Qtl',
-    status: 'Gate Waiting',
-    assignedBay: 'Gate 01 Inbound',
-    gateCleared: false,
-    lastNotified: 'None',
-    calloutCount: 0
-  }
-];
+const statusLabels = {
+  WAITING: "Waiting",
+  CALLED: "Called",
+  IN_PROGRESS: "In Progress",
+  COMPLETED: "Completed",
+};
+
+const statusStyles = {
+  WAITING: "bg-slate-100 text-slate-700",
+  CALLED: "bg-amber-100 text-amber-900",
+  IN_PROGRESS: "bg-emerald-100 text-emerald-900",
+  COMPLETED: "bg-gray-100 text-gray-700",
+};
+
+function normaliseToken(token) {
+  if (!token) return null;
+  return {
+    ...token,
+    id: token.id || `booking-${token.bookingId}`,
+    tokenLabel: `Token #${token.tokenNumber}`,
+    farmerName: token.farmerName || "Unknown farmer",
+    grainWeight: token.grainWeight ?? 0,
+  };
+}
 
 export default function QueueManage() {
   const navigate = useNavigate();
-  const [queueList, setQueueList] = useState(initialYardQueue);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterMode, setFilterMode] = useState('all'); // 'all' | 'gate' | 'called'
-  const [selectedCallout, setSelectedCallout] = useState(null);
-  const [calloutType, setCalloutType] = useState('proceed_bay');
-  const [customMsg, setCustomMsg] = useState('');
-  const [toastMessage, setToastMessage] = useState('');
+  const [waitingQueue, setWaitingQueue] = useState([]);
+  const [currentFarmer, setCurrentFarmer] = useState(null);
+  const [bookingId, setBookingId] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [activeAction, setActiveAction] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [toastMessage, setToastMessage] = useState("");
 
-  const showToast = (msg) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(''), 3200);
+  const showToast = (message) => {
+    setToastMessage(message);
+    window.setTimeout(() => setToastMessage(""), 3200);
   };
 
-  const handleGateClearance = (id) => {
-    setQueueList((prev) =>
-      prev.map((item) =>
-        item.id === id
-          ? {
-              ...item,
-              gateCleared: true,
-              status: 'Queued',
-              assignedBay: 'Assigned Yard Lane 02'
-            }
-          : item
-      )
+  const loadQueue = async (showLoader = false) => {
+    if (showLoader) setIsLoading(true);
+    try {
+      const [waiting, current] = await Promise.all([
+        getWaitingQueue(),
+        getCurrentQueue(),
+      ]);
+      setWaitingQueue((waiting || []).map(normaliseToken));
+      setCurrentFarmer(normaliseToken(current));
+      setErrorMessage("");
+    } catch (error) {
+      const message =
+        error.response?.status === 401 || error.response?.status === 403
+          ? "Operator authentication is required. Sign in and store the operator JWT as OPERATOR_JWT."
+          : error.response?.data?.message ||
+            "Unable to load the queue. Check that the backend is running.";
+      setErrorMessage(message);
+    } finally {
+      if (showLoader) setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const initialLoad = window.setTimeout(() => loadQueue(true), 0);
+    const poller = window.setInterval(() => loadQueue(), 4000);
+    return () => {
+      window.clearTimeout(initialLoad);
+      window.clearInterval(poller);
+    };
+  }, []);
+
+  const runAction = async (actionName, action, successMessage) => {
+    setActiveAction(actionName);
+    try {
+      await action();
+      showToast(successMessage);
+      await loadQueue();
+    } catch (error) {
+      setErrorMessage(
+        error.response?.data?.message ||
+          error.message ||
+          "Queue action failed.",
+      );
+    } finally {
+      setActiveAction("");
+    }
+  };
+
+  const handleCheckIn = (event) => {
+    event.preventDefault();
+    const parsedBookingId = Number(bookingId);
+    if (!Number.isInteger(parsedBookingId) || parsedBookingId < 1) {
+      setErrorMessage("Enter a valid booking ID to check in a farmer.");
+      return;
+    }
+    runAction(
+      "check-in",
+      () => checkInBooking(parsedBookingId),
+      `Booking ${parsedBookingId} checked in and added to WAITING.`,
+    ).then(() => setBookingId(""));
+  };
+
+  const filteredWaiting = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return waitingQueue;
+    return waitingQueue.filter((item) =>
+      [item.farmerName, item.tokenLabel, item.bookingId, item.farmerPhone].some(
+        (value) =>
+          String(value ?? "")
+            .toLowerCase()
+            .includes(query),
+      ),
     );
-    showToast('Gate barrier cleared & QR token validated!');
-  };
+  }, [searchQuery, waitingQueue]);
 
-  const openCalloutModal = (farmer) => {
-    setSelectedCallout(farmer);
-    setCalloutType('proceed_bay');
-    setCustomMsg(
-      `Your token ${farmer.tokenId} is called! Please proceed immediately to ${farmer.assignedBay}.`
-    );
-  };
-
-  const handleSendCallout = () => {
-    if (!selectedCallout) return;
-
-    setQueueList((prev) =>
-      prev.map((item) =>
-        item.id === selectedCallout.id
-          ? {
-              ...item,
-              status: 'Called',
-              lastNotified: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-              calloutCount: item.calloutCount + 1
-            }
-          : item
-      )
-    );
-
-    showToast(`Instant alert & SMS push dispatched to ${selectedCallout.farmerName}!`);
-    setSelectedCallout(null);
-  };
-
-  const handleMarkServing = (id) => {
-    setQueueList((prev) =>
-      prev.map((item) =>
-        item.id === id
-          ? { ...item, status: 'Serving' }
-          : item.status === 'Serving'
-          ? { ...item, status: 'Completed' }
-          : item
-      )
-    );
-    showToast('Scale bay activated. Farmer is now mounting weighbridge.');
-  };
-
-  const filteredQueue = queueList.filter((item) => {
-    const matchesSearch =
-      item.farmerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.tokenId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.vehicleNo.toLowerCase().includes(searchQuery.toLowerCase());
-
-    if (filterMode === 'gate') return matchesSearch && !item.gateCleared;
-    if (filterMode === 'called') return matchesSearch && item.status === 'Called';
-    return matchesSearch;
-  });
+  const actionBusy = (name) => activeAction === name;
 
   return (
-    <div className="relative min-h-screen w-full bg-[#f6f9f5] font-sans text-gray-800 antialiased selection:bg-emerald-200 selection:text-emerald-900">
-      
-      {/* Background Soft Glow */}
-      <div 
-        className="pointer-events-none absolute inset-0 z-0 h-[420px] w-full bg-cover bg-center opacity-85"
-        style={{
-          backgroundImage: `radial-gradient(ellipse at 50% 10%, rgba(212, 245, 195, 0.55) 0%, rgba(246, 249, 245, 1) 75%)`
-        }}
-      />
-
-      {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-emerald-900/5 bg-white/90 backdrop-blur-md">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3.5 lg:px-12">
-          
+    <div className="min-h-screen bg-[#f6f9f5] font-sans text-gray-800 antialiased">
+      <header className="sticky top-0 z-20 border-b border-emerald-900/10 bg-white/95 backdrop-blur">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 lg:px-12">
           <div className="flex items-center gap-3">
-            <button 
-              onClick={() => navigate('/operatordashboard')} 
-              className="rounded-xl border border-gray-200 bg-white p-2 text-gray-600 shadow-sm transition hover:bg-gray-50 hover:text-gray-900"
-              aria-label="Back to Console"
+            <button
+              onClick={() => navigate("/operatordashboard")}
+              className="rounded-xl border border-gray-200 bg-white p-2 text-gray-600 shadow-sm hover:bg-gray-50"
+              aria-label="Back to operator dashboard"
             >
               <ArrowLeft className="h-4 w-4" />
             </button>
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#14532d] text-white shadow-sm">
-                <Building2 className="h-4 w-4 text-emerald-400" />
-              </div>
-              <div>
-                <span className="block text-base font-extrabold leading-tight tracking-tight text-[#14532d]">
-                  SmartProcure <span className="text-xs font-semibold text-emerald-700 uppercase">| Yard Master</span>
-                </span>
-                <span className="block text-[10px] font-bold uppercase tracking-wider text-emerald-700">
-                  Live Queue Control & Gate Dispatch
-                </span>
-              </div>
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#14532d] text-white">
+              <Building2 className="h-4 w-4 text-emerald-300" />
+            </div>
+            <div>
+              <strong className="block text-base leading-tight text-[#14532d]">
+                SmartProcure
+              </strong>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">
+                Operator Queue Control
+              </span>
             </div>
           </div>
-
-          <div className="flex items-center gap-3">
-            <span className="hidden items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-[#14532d] sm:inline-flex">
-              <Radio className="h-3 w-3 text-emerald-600 animate-pulse" />
-              Broadcast Radio: Active
-            </span>
-          </div>
+          <button
+            onClick={() => loadQueue(true)}
+            className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-gray-700 hover:bg-gray-50"
+            disabled={isLoading}
+          >
+            <RefreshCw
+              className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`}
+            />{" "}
+            Refresh
+          </button>
         </div>
       </header>
 
-      {/* Toast Alert */}
-      <AnimatePresence>
-        {toastMessage && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="fixed top-16 right-6 z-50 flex items-center gap-2.5 rounded-2xl bg-[#14532d] px-5 py-3 text-xs font-bold text-white shadow-xl"
-          >
-            <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-            {toastMessage}
-          </motion.div>
+      {toastMessage && (
+        <div className="fixed right-6 top-20 z-30 flex items-center gap-2 rounded-xl bg-[#14532d] px-4 py-3 text-xs font-bold text-white shadow-xl">
+          <CheckCircle2 className="h-4 w-4 text-emerald-300" /> {toastMessage}
+        </div>
+      )}
+
+      <main className="mx-auto max-w-7xl px-6 py-8 lg:px-12">
+        <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+          <div>
+            <p className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-emerald-700">
+              <Megaphone className="h-3.5 w-3.5" /> Live queue workflow
+            </p>
+            <h1 className="text-3xl font-black tracking-tight text-gray-900">
+              Check-in to completion
+            </h1>
+            <p className="mt-1 text-sm text-gray-500">
+              BOOKED → CHECKED_IN → WAITING → CALLED → IN_PROGRESS → COMPLETED
+            </p>
+          </div>
+          <div className="flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800">
+            <Clock3 className="h-3.5 w-3.5" /> Polling every 4 seconds
+          </div>
+        </div>
+
+        {errorMessage && (
+          <div className="mb-5 flex flex-col gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 sm:flex-row sm:items-center sm:justify-between">
+            <span>{errorMessage}</span>
+            <button
+              type="button"
+              onClick={() => navigate("/operator-login")}
+              className="shrink-0 rounded-lg bg-[#14532d] px-3 py-2 text-xs font-bold text-white hover:bg-[#0f3e21]"
+            >
+              Sign in as operator
+            </button>
+          </div>
         )}
-      </AnimatePresence>
 
-      {/* Main Container */}
-      <main className="relative z-10 mx-auto max-w-7xl px-6 pt-6 pb-16 lg:px-12">
-        
-        {/* Banner Section */}
-        <motion.div 
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="rounded-3xl border border-emerald-900/10 bg-gradient-to-br from-[#14532d] via-[#166534] to-[#0f3e21] p-6 text-white shadow-xl lg:p-8"
-        >
-          <div className="grid items-center gap-6 lg:grid-cols-12">
-            
-            <div className="lg:col-span-7">
-              <span className="inline-flex items-center gap-2 rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-200 backdrop-blur-sm">
-                <Megaphone className="h-3.5 w-3.5 text-emerald-300" />
-                Real-Time Mandi Yard Flow Manager
-              </span>
-
-              <h1 className="mt-3 text-2xl font-black tracking-tight sm:text-3xl lg:text-4xl">
-                Gate Clearance & Queue Callouts
-              </h1>
-              <p className="mt-2 max-w-lg text-xs leading-relaxed text-emerald-100 sm:text-sm">
-                Authenticate inbound tractor tokens, clear gate barriers, and dispatch instant SMS or push callouts to direct farmers to open weighbridge bays.
-              </p>
-            </div>
-
-            {/* Real-time Yard Meters */}
-            <div className="lg:col-span-5">
-              <div className="grid grid-cols-2 gap-3.5">
-                <div className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur-md">
-                  <span className="block text-[11px] font-bold uppercase text-emerald-200">Active in Yard</span>
-                  <span className="mt-1 block text-2xl font-black text-white">{queueList.filter(q => q.gateCleared).length} Vehicles</span>
-                  <span className="mt-0.5 block text-[10px] text-emerald-300">Scale throughput optimal</span>
-                </div>
-
-                <div className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur-md">
-                  <span className="block text-[11px] font-bold uppercase text-emerald-200">Pending Gate Entry</span>
-                  <span className="mt-1 block text-2xl font-black text-white">{queueList.filter(q => !q.gateCleared).length} Vehicles</span>
-                  <span className="mt-0.5 block text-[10px] text-emerald-300">Gate 01 Barrier Queue</span>
-                </div>
+        <section className="grid gap-5 lg:grid-cols-[1fr_1.4fr]">
+          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex items-center gap-3">
+              <div className="rounded-xl bg-emerald-100 p-2 text-emerald-800">
+                <UserCheck className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="font-bold text-gray-900">Check in booking</h2>
+                <p className="text-xs text-gray-500">
+                  Generates a queue token and sets WAITING.
+                </p>
               </div>
             </div>
-
-          </div>
-        </motion.div>
-
-        {/* Filter & Search Bar */}
-        <div className="mt-8 flex flex-col justify-between gap-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center">
-          
-          <div className="relative flex-1">
-            <Search className="absolute left-3.5 top-2.5 h-4 w-4 text-gray-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by Farmer Name, Token ID, or Vehicle No..."
-              className="w-full rounded-xl border border-gray-200 bg-gray-50 py-2 pl-9 pr-4 text-xs text-gray-900 focus:border-emerald-600 focus:bg-white focus:outline-none"
-            />
-          </div>
-
-          <div className="flex gap-1.5 rounded-xl bg-gray-100 p-1 text-xs font-bold">
-            <button
-              onClick={() => setFilterMode('all')}
-              className={`rounded-lg px-3 py-1.5 transition ${
-                filterMode === 'all' ? 'bg-white text-[#14532d] shadow-sm' : 'text-gray-500 hover:text-gray-900'
-              }`}
-            >
-              All In-Yard ({queueList.length})
-            </button>
-            <button
-              onClick={() => setFilterMode('gate')}
-              className={`rounded-lg px-3 py-1.5 transition ${
-                filterMode === 'gate' ? 'bg-white text-amber-800 shadow-sm' : 'text-gray-500 hover:text-gray-900'
-              }`}
-            >
-              Gate Inbound
-            </button>
-            <button
-              onClick={() => setFilterMode('called')}
-              className={`rounded-lg px-3 py-1.5 transition ${
-                filterMode === 'called' ? 'bg-white text-[#14532d] shadow-sm' : 'text-gray-500 hover:text-gray-900'
-              }`}
-            >
-              Called Out
-            </button>
-          </div>
-
-        </div>
-
-        {/* Live Queue Cards */}
-        <div className="mt-6 space-y-3.5">
-          {filteredQueue.map((item, idx) => {
-            const isServing = item.status === 'Serving';
-            const isCalled = item.status === 'Called';
-            const isGateWaiting = !item.gateCleared;
-
-            return (
-              <motion.div
-                key={item.id}
-                whileHover={{ y: -2 }}
-                className={`flex flex-col justify-between gap-4 rounded-2xl border p-5 shadow-sm transition sm:flex-row sm:items-center sm:p-6 ${
-                  isServing
-                    ? 'border-emerald-500/40 bg-emerald-50/40 ring-2 ring-emerald-500/20'
-                    : isCalled
-                    ? 'border-amber-300 bg-amber-50/30'
-                    : 'border-gray-200 bg-white'
-                }`}
+            <form onSubmit={handleCheckIn} className="flex gap-2">
+              <input
+                value={bookingId}
+                onChange={(event) => setBookingId(event.target.value)}
+                type="number"
+                min="1"
+                placeholder="Booking ID"
+                className="min-w-0 flex-1 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm focus:border-emerald-600 focus:bg-white focus:outline-none"
+              />
+              <button
+                disabled={actionBusy("check-in")}
+                className="flex items-center gap-2 rounded-xl bg-[#14532d] px-4 py-2 text-xs font-bold text-white hover:bg-[#0f3e21] disabled:opacity-60"
               >
-                <div className="flex items-start gap-4">
-                  <div
-                    className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl font-black text-xs ${
-                      isServing
-                        ? 'bg-[#14532d] text-white animate-pulse'
-                        : isCalled
-                        ? 'bg-amber-500 text-white'
-                        : isGateWaiting
-                        ? 'bg-gray-200 text-gray-700'
-                        : 'bg-emerald-100 text-[#14532d]'
-                    }`}
-                  >
-                    {isServing ? 'BAY' : isGateWaiting ? 'GATE' : `#${idx + 1}`}
-                  </div>
+                {actionBusy("check-in") ? (
+                  <LoaderCircle className="h-4 w-4 animate-spin" />
+                ) : (
+                  <UserCheck className="h-4 w-4" />
+                )}{" "}
+                Check in
+              </button>
+            </form>
+          </div>
 
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-sm font-bold text-gray-900">{item.farmerName}</h3>
-                      <span className="rounded-md bg-gray-100 px-2 py-0.5 text-[10px] font-bold text-gray-700">
-                        {item.tokenId}
-                      </span>
-                      <span
-                        className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold ${
-                          isServing
-                            ? 'bg-emerald-200 text-emerald-900'
-                            : isCalled
-                            ? 'bg-amber-100 text-amber-900'
-                            : isGateWaiting
-                            ? 'bg-red-100 text-red-800'
-                            : 'bg-gray-100 text-gray-700'
-                        }`}
-                      >
-                        {isServing ? <Scale className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
-                        {item.status}
-                      </span>
-                    </div>
-
-                    <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500">
-                      <span>Vehicle: <strong className="text-gray-700">{item.vehicleNo}</strong></span>
-                      <span>•</span>
-                      <span>Crop: <strong className="text-gray-700">{item.crop}</strong></span>
-                      <span>•</span>
-                      <span>Station: <strong className="text-gray-700">{item.assignedBay}</strong></span>
-                    </div>
-
-                    <div className="mt-1.5 flex items-center gap-3 text-[11px] text-gray-400">
-                      <span>Gate Cleared: <strong>{item.gateCleared ? 'Yes (Verified)' : 'Pending at Gate'}</strong></span>
-                      <span>•</span>
-                      <span>Callout Sent: <strong>{item.lastNotified} ({item.calloutCount} times)</strong></span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Operator Actions */}
-                <div className="flex flex-wrap items-center justify-end gap-2 border-t border-gray-100 pt-3 sm:border-0 sm:pt-0">
-                  {isGateWaiting ? (
-                    <button
-                      onClick={() => handleGateClearance(item.id)}
-                      className="flex items-center gap-1.5 rounded-xl bg-[#14532d] px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-[#0f3e21]"
-                    >
-                      <QrCode className="h-3.5 w-3.5" />
-                      Verify QR & Clear Gate
-                    </button>
-                  ) : (
-                    <>
-                      <button
-                        onClick={() => openCalloutModal(item)}
-                        className="flex items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-2 text-xs font-bold text-amber-900 transition hover:bg-amber-100"
-                      >
-                        <BellRing className="h-3.5 w-3.5" />
-                        Push Callout Alert
-                      </button>
-
-                      {!isServing && (
-                        <button
-                          onClick={() => handleMarkServing(item.id)}
-                          className="flex items-center gap-1.5 rounded-xl bg-[#14532d] px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-[#0f3e21]"
-                        >
-                          <Scale className="h-3.5 w-3.5" />
-                          Set on Scale
-                        </button>
-                      )}
-                    </>
-                  )}
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
-
-      </main>
-
-      {/* Modal: Push Instant Queue Callout */}
-      <AnimatePresence>
-        {selectedCallout && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="relative w-full max-w-lg rounded-3xl border border-gray-200 bg-white p-6 shadow-2xl sm:p-8"
-            >
-              <div className="flex items-center gap-3 border-b border-gray-100 pb-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 text-amber-800">
-                  <Megaphone className="h-5 w-5" />
+          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="rounded-xl bg-amber-100 p-2 text-amber-800">
+                  <PhoneCall className="h-5 w-5" />
                 </div>
                 <div>
-                  <h2 className="text-base font-bold text-gray-900">Broadcast Gate Callout</h2>
+                  <h2 className="font-bold text-gray-900">
+                    Current serving farmer
+                  </h2>
                   <p className="text-xs text-gray-500">
-                    Direct notification to {selectedCallout.farmerName} ({selectedCallout.vehicleNo})
+                    The latest CALLED or IN_PROGRESS token.
                   </p>
                 </div>
               </div>
-
-              <div className="mt-5 space-y-4 text-xs">
-                
-                {/* Callout Template Selection */}
+              {currentFarmer && (
+                <span
+                  className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${statusStyles[currentFarmer.status]}`}
+                >
+                  {statusLabels[currentFarmer.status] || currentFarmer.status}
+                </span>
+              )}
+            </div>
+            {currentFarmer ? (
+              <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
                 <div>
-                  <label className="font-bold text-gray-700">Callout Alert Template</label>
-                  <select
-                    value={calloutType}
-                    onChange={(e) => {
-                      setCalloutType(e.target.value);
-                      if (e.target.value === 'proceed_bay') {
-                        setCustomMsg(`Your token ${selectedCallout.tokenId} is called! Please proceed immediately to ${selectedCallout.assignedBay}.`);
-                      } else if (e.target.value === 'idle_ready') {
-                        setCustomMsg(`Your turn is 1 position away. Please start tractor engine (${selectedCallout.vehicleNo}) and prepare to mount the scale.`);
-                      } else {
-                        setCustomMsg(`Please report to the Mandi Operator Yard Desk regarding Token ${selectedCallout.tokenId}.`);
+                  <p className="text-lg font-black text-gray-900">
+                    {currentFarmer.farmerName}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {currentFarmer.tokenLabel} · Booking{" "}
+                    {currentFarmer.bookingId} · {currentFarmer.grainWeight} kg
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {currentFarmer.status === "CALLED" && (
+                    <button
+                      onClick={() =>
+                        runAction(
+                          "start",
+                          () => startQueueProcessing(currentFarmer.bookingId),
+                          "Processing started.",
+                        )
                       }
-                    }}
-                    className="mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-xs text-gray-900 focus:border-emerald-600 focus:outline-none"
-                  >
-                    <option value="proceed_bay">Immediate Turn: Mount Assigned Weigh Bay</option>
-                    <option value="idle_ready">Next Up Warning: Idle Engine & Standby</option>
-                    <option value="report_desk">Admin Notice: Report to Mandi Office</option>
-                  </select>
+                      disabled={actionBusy("start")}
+                      className="flex items-center gap-2 rounded-xl bg-[#14532d] px-3 py-2 text-xs font-bold text-white disabled:opacity-60"
+                    >
+                      <Play className="h-3.5 w-3.5" /> Start
+                    </button>
+                  )}
+                  {currentFarmer.status === "IN_PROGRESS" && (
+                    <button
+                      onClick={() =>
+                        runAction(
+                          "complete",
+                          () =>
+                            completeQueueProcessing(currentFarmer.bookingId),
+                          "Procurement completed. Payment can now be created.",
+                        )
+                      }
+                      disabled={actionBusy("complete")}
+                      className="flex items-center gap-2 rounded-xl bg-[#14532d] px-3 py-2 text-xs font-bold text-white disabled:opacity-60"
+                    >
+                      <SquareCheckBig className="h-3.5 w-3.5" /> Complete
+                    </button>
+                  )}
                 </div>
-
-                {/* Custom Notification Message Body */}
-                <div>
-                  <label className="font-bold text-gray-700">Message Content (App Notification & SMS)</label>
-                  <textarea
-                    rows={3}
-                    value={customMsg}
-                    onChange={(e) => setCustomMsg(e.target.value)}
-                    className="mt-1.5 w-full rounded-xl border border-gray-200 bg-gray-50 p-3 text-xs text-gray-800 focus:border-emerald-600 focus:bg-white focus:outline-none"
-                  />
-                </div>
-
-                <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-3 text-[11px] text-amber-900">
-                  <span>
-                    Sending this callout will instantly update the farmer's <strong>Live Queue Tracker</strong> and trigger a high-priority SMS alert.
-                  </span>
-                </div>
-
               </div>
-
-              {/* Modal Actions */}
-              <div className="mt-6 flex gap-3">
-                <button
-                  onClick={handleSendCallout}
-                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#14532d] py-2.5 text-xs font-bold text-white transition hover:bg-[#0f3e21]"
-                >
-                  <Send className="h-3.5 w-3.5" />
-                  Broadcast Callout Alert
-                </button>
-                <button
-                  onClick={() => setSelectedCallout(null)}
-                  className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-              </div>
-
-            </motion.div>
+            ) : (
+              <p className="rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-500">
+                No farmer is currently called or in progress.
+              </p>
+            )}
           </div>
-        )}
-      </AnimatePresence>
+        </section>
 
+        <section className="mt-6 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+            <div>
+              <h2 className="flex items-center gap-2 font-bold text-gray-900">
+                <Users className="h-4 w-4 text-emerald-700" /> Waiting queue{" "}
+                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-800">
+                  {waitingQueue.length}
+                </span>
+              </h2>
+              <p className="mt-1 text-xs text-gray-500">
+                Oldest farmer is selected automatically by Call Next.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                <input
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Search farmer or token"
+                  className="rounded-xl border border-gray-200 bg-gray-50 py-2 pl-9 pr-3 text-xs focus:border-emerald-600 focus:bg-white focus:outline-none"
+                />
+              </div>
+              <button
+                onClick={() =>
+                  runAction(
+                    "call-next",
+                    callNextFarmer,
+                    "Oldest waiting farmer called.",
+                  )
+                }
+                disabled={actionBusy("call-next") || waitingQueue.length === 0}
+                className="flex items-center gap-2 rounded-xl bg-amber-500 px-3 py-2 text-xs font-bold text-white hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <PhoneCall className="h-3.5 w-3.5" /> Call next
+              </button>
+            </div>
+          </div>
+          <div className="mt-4 overflow-x-auto">
+            {isLoading ? (
+              <div className="flex items-center justify-center gap-2 py-12 text-sm text-gray-500">
+                <LoaderCircle className="h-4 w-4 animate-spin" /> Loading
+                queue...
+              </div>
+            ) : filteredWaiting.length === 0 ? (
+              <p className="rounded-xl bg-gray-50 px-4 py-10 text-center text-sm text-gray-500">
+                No farmers are waiting.
+              </p>
+            ) : (
+              <table className="w-full min-w-[620px] text-left text-sm">
+                <thead className="border-b border-gray-100 text-[11px] uppercase tracking-wider text-gray-400">
+                  <tr>
+                    <th className="px-3 py-3">Position</th>
+                    <th className="px-3 py-3">Farmer</th>
+                    <th className="px-3 py-3">Booking</th>
+                    <th className="px-3 py-3">Weight</th>
+                    <th className="px-3 py-3">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredWaiting.map((item, index) => (
+                    <tr
+                      key={item.id}
+                      className="border-b border-gray-50 last:border-0"
+                    >
+                      <td className="px-3 py-4 font-black text-emerald-800">
+                        {index + 1}
+                      </td>
+                      <td className="px-3 py-4">
+                        <strong className="block text-gray-900">
+                          {item.farmerName}
+                        </strong>
+                        <span className="text-xs text-gray-500">
+                          {item.tokenLabel} · {item.farmerPhone}
+                        </span>
+                      </td>
+                      <td className="px-3 py-4 text-gray-600">
+                        #{item.bookingId}
+                      </td>
+                      <td className="px-3 py-4 text-gray-600">
+                        {item.grainWeight} kg
+                      </td>
+                      <td className="px-3 py-4">
+                        <span
+                          className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${statusStyles[item.status]}`}
+                        >
+                          {statusLabels[item.status] || item.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </section>
+      </main>
     </div>
   );
 }
