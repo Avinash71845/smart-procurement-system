@@ -1,15 +1,15 @@
-import React, { useState } from 'react';
-import { 
-  Building2, 
-  PlusCircle, 
-  X, 
-  Clock, 
-  Calendar, 
-  Weight, 
-  CheckCircle2, 
-  AlertCircle, 
-  Loader2 
-} from 'lucide-react';
+import { useState } from "react";
+import {
+  Building2,
+  PlusCircle,
+  X,
+  Clock,
+  Calendar,
+  Weight,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
+} from "lucide-react";
 
 export default function OperatorHeaderWithSlotModal() {
   const [isSlotModalOpen, setIsSlotModalOpen] = useState(false);
@@ -19,17 +19,20 @@ export default function OperatorHeaderWithSlotModal() {
   // Form State initialized with the exact required schema
   const [slotData, setSlotData] = useState({
     procurementCentreId: 2,
-    date: '2026-09-12',
-    startTime: '09:00:00',
-    endTime: '11:00:00',
-    capacityKg: 800
+    date: "2026-09-12",
+    startTime: "09:00:00",
+    endTime: "11:00:00",
+    capacityKg: 800,
   });
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setSlotData((prev) => ({
       ...prev,
-      [name]: name === 'procurementCentreId' || name === 'capacityKg' ? Number(value) : value
+      [name]:
+        name === "procurementCentreId" || name === "capacityKg"
+          ? Number(value)
+          : value,
     }));
   };
 
@@ -50,19 +53,22 @@ export default function OperatorHeaderWithSlotModal() {
       date: slotData.date,
       startTime: slotData.startTime,
       endTime: slotData.endTime,
-      capacityKg: Number(slotData.capacityKg)
+      capacityKg: Number(slotData.capacityKg),
     };
 
-    const token = localStorage.getItem('OPERATOR_JWT') || localStorage.getItem('JWT_TOKEN') || '';
+    const token =
+      localStorage.getItem("OPERATOR_JWT") ||
+      localStorage.getItem("JWT_TOKEN") ||
+      "";
 
     try {
-      const response = await fetch('http://localhost:8080/api/slots', {
-        method: 'POST',
+      const response = await fetch("http://localhost:8080/api/slots", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
@@ -70,18 +76,19 @@ export default function OperatorHeaderWithSlotModal() {
       }
 
       const resData = await response.json();
-      setStatusMessage({ type: 'success', text: `Slot created successfully! (ID: ${resData.id || 'Assigned'})` });
+      setStatusMessage({
+        type: "success",
+        text: `Slot created successfully! (ID: ${resData.id || "Assigned"})`,
+      });
       setTimeout(() => {
         setIsSlotModalOpen(false);
         setStatusMessage(null);
       }, 1500);
     } catch (err) {
-      console.warn('Backend unavailable, simulating success:', err.message);
-      setStatusMessage({ type: 'success', text: 'Slot created successfully (Local Mock)!' });
-      setTimeout(() => {
-        setIsSlotModalOpen(false);
-        setStatusMessage(null);
-      }, 1500);
+      setStatusMessage({
+        type: "error",
+        text: err.message || "Unable to create slot.",
+      });
     } finally {
       setLoading(false);
     }
@@ -97,7 +104,9 @@ export default function OperatorHeaderWithSlotModal() {
               <Building2 className="h-5 w-5 text-[#00e699]" />
             </div>
             <div>
-              <h1 className="text-base font-extrabold text-[#14532d]">Mandi Admin Portal</h1>
+              <h1 className="text-base font-extrabold text-[#14532d]">
+                Mandi Admin Portal
+              </h1>
               <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
                 Procurement Centre Management
               </p>
@@ -123,7 +132,9 @@ export default function OperatorHeaderWithSlotModal() {
             {/* Modal Header */}
             <div className="flex items-center justify-between border-b border-gray-100 pb-3">
               <div>
-                <h3 className="text-base font-black text-gray-900">Create Procurement Slot</h3>
+                <h3 className="text-base font-black text-gray-900">
+                  Create Procurement Slot
+                </h3>
                 <p className="text-[11px] text-gray-500">POST /api/slots</p>
               </div>
               <button
@@ -139,12 +150,12 @@ export default function OperatorHeaderWithSlotModal() {
             {statusMessage && (
               <div
                 className={`mt-4 flex items-center gap-2 rounded-xl p-3 text-xs ${
-                  statusMessage.type === 'success'
-                    ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                    : 'bg-red-50 text-red-800 border border-red-200'
+                  statusMessage.type === "success"
+                    ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                    : "bg-red-50 text-red-800 border border-red-200"
                 }`}
               >
-                {statusMessage.type === 'success' ? (
+                {statusMessage.type === "success" ? (
                   <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
                 ) : (
                   <AlertCircle className="h-4 w-4 shrink-0 text-red-600" />
@@ -156,7 +167,9 @@ export default function OperatorHeaderWithSlotModal() {
             {/* Modal Form */}
             <form onSubmit={handleCreateSlot} className="mt-4 space-y-3.5">
               <div>
-                <label className="text-xs font-bold text-gray-700">Procurement Centre ID</label>
+                <label className="text-xs font-bold text-gray-700">
+                  Procurement Centre ID
+                </label>
                 <input
                   type="number"
                   name="procurementCentreId"
@@ -185,7 +198,9 @@ export default function OperatorHeaderWithSlotModal() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-bold text-gray-700">Start Time</label>
+                  <label className="text-xs font-bold text-gray-700">
+                    Start Time
+                  </label>
                   <div className="relative mt-1">
                     <Clock className="pointer-events-none absolute left-3 top-2.5 h-3.5 w-3.5 text-gray-400" />
                     <input
@@ -201,7 +216,9 @@ export default function OperatorHeaderWithSlotModal() {
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-gray-700">End Time</label>
+                  <label className="text-xs font-bold text-gray-700">
+                    End Time
+                  </label>
                   <div className="relative mt-1">
                     <Clock className="pointer-events-none absolute left-3 top-2.5 h-3.5 w-3.5 text-gray-400" />
                     <input
@@ -218,7 +235,9 @@ export default function OperatorHeaderWithSlotModal() {
               </div>
 
               <div>
-                <label className="text-xs font-bold text-gray-700">Capacity (Kg)</label>
+                <label className="text-xs font-bold text-gray-700">
+                  Capacity (Kg)
+                </label>
                 <div className="relative mt-1">
                   <Weight className="pointer-events-none absolute left-3 top-2.5 h-3.5 w-3.5 text-gray-400" />
                   <input
@@ -256,7 +275,7 @@ export default function OperatorHeaderWithSlotModal() {
                       <Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving...
                     </>
                   ) : (
-                    'Confirm Slot'
+                    "Confirm Slot"
                   )}
                 </button>
               </div>

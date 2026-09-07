@@ -1,17 +1,16 @@
 import axios from "axios";
 
 const queueApi = axios.create({
-  baseURL: "http://localhost:8080/queue",
+  baseURL: "/queue",
   headers: {
     "Content-Type": "application/json",
   },
 });
 
 queueApi.interceptors.request.use((config) => {
-  const token =
-    localStorage.getItem("OPERATOR_JWT") ||
-    localStorage.getItem("JWT_TOKEN") ||
-    localStorage.getItem("FARMER_JWT");
+  const token = config.meta?.farmerAuth
+    ? localStorage.getItem("FARMER_JWT") || localStorage.getItem("token")
+    : localStorage.getItem("OPERATOR_JWT");
 
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -28,6 +27,11 @@ export const getWaitingQueue = () =>
 
 export const getCurrentQueue = () =>
   queueApi.get("/current").then((response) => response.data);
+
+export const getMyQueue = (bookingId) =>
+  queueApi
+    .get(`/my/${bookingId}`, { meta: { farmerAuth: true } })
+    .then((response) => response.data);
 
 export const callNextFarmer = () =>
   queueApi.post("/call-next").then((response) => response.data);

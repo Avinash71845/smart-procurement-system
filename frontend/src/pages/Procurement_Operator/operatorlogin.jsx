@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
+import { clearSession } from "../../utils/session";
 import {
   Building2,
   ShieldCheck,
@@ -35,6 +36,7 @@ export default function OperatorLogin() {
     e.preventDefault();
     setErrorMessage("");
     setIsLoading(true);
+    clearSession();
 
     try {
       const response = await fetch("http://localhost:8080/auth/login", {
@@ -48,10 +50,17 @@ export default function OperatorLogin() {
 
       const token = (await response.text()).trim();
       if (!response.ok || !token) {
+        if (response.status === 403 || response.status === 404) {
+          throw new Error(
+            "Operator account not found or password is incorrect. Register first or use the registered mobile number.",
+          );
+        }
         throw new Error(token || `Login failed (${response.status})`);
       }
 
       localStorage.setItem("OPERATOR_JWT", token.replace(/^"|"$/g, ""));
+      localStorage.setItem("userRole", "operator");
+      localStorage.setItem("userMobile", formData.employeeId.trim());
       navigate("/operatorhome");
     } catch (error) {
       setErrorMessage(

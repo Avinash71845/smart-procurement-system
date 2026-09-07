@@ -25,6 +25,7 @@ import PaymentPushDbtSync from "./pages/Procurement_Operator/paymentstatusupdate
 import FarmerUpdateProfile from "./pages/commonpages/farmerupdateprofile";
 import OperatorUpdateProfile from "./pages/commonpages/operatorupdateprofile";
 import OperatorHeaderWithSlotModal from "./pages/Procurement_Operator/createslot";
+import RequireOperator from "./components/RequireOperator";
 
 function App() {
   return (
@@ -48,7 +49,6 @@ function App() {
         <Route path="/" element={<Home />} />
 
         <Route path="/farmerhome" element={<FarmerHome />} />
-        <Route path="/operatorhome" element={<OperatorHome />} />
         <Route path="/operatorLogin" element={<OperatorLogin />} />
         <Route path="/operator-login" element={<OperatorLogin />} />
         <Route
@@ -60,31 +60,34 @@ function App() {
         <Route path="/register" element={<Registration />} />
         <Route path="/landingpage" element={<Landingpage />} />
         <Route path="/farmerdashboard" element={<FarmerDash />} />
-        <Route path="/operatordashboard" element={<OperatorDashboard />} />
+        <Route element={<RequireOperator />}>
+          <Route path="/operatorhome" element={<OperatorHome />} />
+          <Route path="/operatordashboard" element={<OperatorDashboard />} />
+          <Route path="/slot-approve" element={<SlotApprove />} />
+          <Route path="/queue-manage" element={<QueueManage />} />
+          <Route
+            path="/weighing-details"
+            element={<WeighingQualityBroadcast />}
+          />
+          <Route path="/payment-give" element={<PaymentPushDbtSync />} />
+          <Route
+            path="/operator-update-profile"
+            element={<OperatorUpdateProfile />}
+          />
+          <Route
+            path="/operator/create-slot"
+            element={<OperatorHeaderWithSlotModal />}
+          />
+        </Route>
         <Route path="/registrationsucess" element={<Registrationsucess />} />
         <Route path="/farmer-notification" element={<FarmerNotifications />} />
         <Route path="/payment-status" element={<PaymentStatus />} />
         <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/slot-approve" element={<SlotApprove />} />
-        <Route path="/queue-manage" element={<QueueManage />} />
-        <Route
-          path="/weighing-details"
-          element={<WeighingQualityBroadcast />}
-        />
-        <Route path="/payment-give" element={<PaymentPushDbtSync />} />
         <Route path="/slot-booking" element={<SlotBooking />} />
         <Route path="/queue" element={<QueueStatus />} />
         <Route
           path="/farmer-update-profile"
           element={<FarmerUpdateProfile />}
-        />
-        <Route
-          path="/operator-update-profile"
-          element={<OperatorUpdateProfile />}
-        />
-        <Route
-          path="/operator/create-slot"
-          element={<OperatorHeaderWithSlotModal />}
         />
       </Routes>
     </BrowserRouter>

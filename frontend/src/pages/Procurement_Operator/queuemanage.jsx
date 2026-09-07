@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -23,6 +23,7 @@ import {
   getWaitingQueue,
   startQueueProcessing,
 } from "../../api/queueApi";
+import { clearSession } from "../../utils/session";
 
 const statusLabels = {
   WAITING: "Waiting",
@@ -65,27 +66,34 @@ export default function QueueManage() {
     window.setTimeout(() => setToastMessage(""), 3200);
   };
 
-  const loadQueue = async (showLoader = false) => {
-    if (showLoader) setIsLoading(true);
-    try {
-      const [waiting, current] = await Promise.all([
-        getWaitingQueue(),
-        getCurrentQueue(),
-      ]);
-      setWaitingQueue((waiting || []).map(normaliseToken));
-      setCurrentFarmer(normaliseToken(current));
-      setErrorMessage("");
-    } catch (error) {
-      const message =
-        error.response?.status === 401 || error.response?.status === 403
-          ? "Operator authentication is required. Sign in and store the operator JWT as OPERATOR_JWT."
-          : error.response?.data?.message ||
-            "Unable to load the queue. Check that the backend is running.";
-      setErrorMessage(message);
-    } finally {
-      if (showLoader) setIsLoading(false);
-    }
-  };
+  const loadQueue = useCallback(
+    async (showLoader = false) => {
+      if (showLoader) setIsLoading(true);
+      try {
+        const [waiting, current] = await Promise.all([
+          getWaitingQueue(),
+          getCurrentQueue(),
+        ]);
+        setWaitingQueue((waiting || []).map(normaliseToken));
+        setCurrentFarmer(normaliseToken(current));
+        setErrorMessage("");
+      } catch (error) {
+        if ([401, 403, 500].includes(error.response?.status)) {
+          clearSession();
+          navigate("/operator-login", { replace: true });
+          return;
+        }
+        const message =
+          error.response?.data?.message ||
+          error.message ||
+          "Unable to load the queue. Check that the backend is running.";
+        setErrorMessage(message);
+      } finally {
+        if (showLoader) setIsLoading(false);
+      }
+    },
+    [navigate],
+  );
 
   useEffect(() => {
     const initialLoad = window.setTimeout(() => loadQueue(true), 0);
@@ -94,7 +102,7 @@ export default function QueueManage() {
       window.clearTimeout(initialLoad);
       window.clearInterval(poller);
     };
-  }, []);
+  }, [loadQueue]);
 
   const runAction = async (actionName, action, successMessage) => {
     setActiveAction(actionName);
@@ -103,6 +111,11 @@ export default function QueueManage() {
       showToast(successMessage);
       await loadQueue();
     } catch (error) {
+      if ([401, 403, 500].includes(error.response?.status)) {
+        clearSession();
+        navigate("/operator-login", { replace: true });
+        return;
+      }
       setErrorMessage(
         error.response?.data?.message ||
           error.message ||
@@ -204,15 +217,8 @@ export default function QueueManage() {
         </div>
 
         {errorMessage && (
-          <div className="mb-5 flex flex-col gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 sm:flex-row sm:items-center sm:justify-between">
-            <span>{errorMessage}</span>
-            <button
-              type="button"
-              onClick={() => navigate("/operator-login")}
-              className="shrink-0 rounded-lg bg-[#14532d] px-3 py-2 text-xs font-bold text-white hover:bg-[#0f3e21]"
-            >
-              Sign in as operator
-            </button>
+          <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+            {errorMessage}
           </div>
         )}
 

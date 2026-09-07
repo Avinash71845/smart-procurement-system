@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Building2,
   ShieldCheck,
@@ -12,28 +12,30 @@ import {
   ChevronRight,
   ArrowLeft,
   CheckCircle2,
-  BadgeCheck
-} from 'lucide-react';
+  BadgeCheck,
+} from "lucide-react";
 
 export default function OperatorRegistration() {
   const navigate = useNavigate();
   const [step, setStep] = useState(1); // 1: Operator Details, 2: OTP Verification
 
   const [formData, setFormData] = useState({
-    fullName: '',
-    phone: '',
-    employeeId: '',
-    centerName: '',
-    centerCode: '',
-    state: 'Bihar',
-    district: '',
-    designation: 'Weighbridge Operator',
-    adminPasscode: '',
-    password: '',
-    confirmPassword: ''
+    fullName: "",
+    phone: "",
+    employeeId: "",
+    centerName: "",
+    centerCode: "",
+    state: "Bihar",
+    district: "",
+    designation: "Weighbridge Operator",
+    adminPasscode: "",
+    password: "",
+    confirmPassword: "",
   });
 
-  const [otp, setOtp] = useState(['', '', '', '']);
+  const [otp, setOtp] = useState(["", "", "", ""]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -54,26 +56,56 @@ export default function OperatorRegistration() {
 
   const handleSubmitStep1 = (e) => {
     e.preventDefault();
+    setErrorMessage("");
     if (formData.password !== formData.confirmPassword) {
-      alert('Passwords do not match. Please verify.');
+      alert("Passwords do not match. Please verify.");
       return;
     }
     setStep(2);
   };
 
-  const handleFinalSubmit = (e) => {
+  const handleFinalSubmit = async (e) => {
     e.preventDefault();
-    navigate('/registrationsucess');
+    setErrorMessage("");
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch("http://localhost:8080/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: formData.fullName.trim(),
+          mobile: formData.phone.replace(/\D/g, ""),
+          password: formData.password,
+          role: "OPERATOR",
+        }),
+      });
+
+      const responseText = await response.text();
+      if (!response.ok) {
+        throw new Error(
+          responseText || `Registration failed (${response.status})`,
+        );
+      }
+
+      navigate("/operator-login");
+    } catch (error) {
+      setErrorMessage(
+        error.message ||
+          "Unable to register operator. Check the backend connection.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
     <div className="relative min-h-screen w-full bg-[#f6f9f5] font-sans text-gray-800 antialiased selection:bg-emerald-200 selection:text-emerald-900">
-      
       {/* Background Soft Glow */}
-      <div 
+      <div
         className="absolute inset-0 z-0 h-[480px] w-full bg-cover bg-center opacity-80 pointer-events-none"
         style={{
-          backgroundImage: `radial-gradient(ellipse at 50% 15%, rgba(212, 245, 195, 0.55) 0%, rgba(246, 249, 245, 1) 75%)`
+          backgroundImage: `radial-gradient(ellipse at 50% 15%, rgba(212, 245, 195, 0.55) 0%, rgba(246, 249, 245, 1) 75%)`,
         }}
       />
 
@@ -97,7 +129,8 @@ export default function OperatorRegistration() {
           to="/operator-login"
           className="flex items-center gap-1.5 text-xs font-bold text-gray-600 transition hover:text-[#14532d]"
         >
-          Already onboarded? <span className="text-[#14532d] underline">Sign In</span>
+          Already onboarded?{" "}
+          <span className="text-[#14532d] underline">Sign In</span>
         </Link>
       </header>
 
@@ -118,7 +151,8 @@ export default function OperatorRegistration() {
               Procurement Operator Onboarding
             </h1>
             <p className="mt-1.5 text-xs text-gray-500">
-              Register authorized staff for mandi intake, quality assay, weighbridge, and DBT processing.
+              Register authorized staff for mandi intake, quality assay,
+              weighbridge, and DBT processing.
             </p>
           </div>
 
@@ -262,10 +296,18 @@ export default function OperatorRegistration() {
                       onChange={handleInputChange}
                       className="mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-xs text-gray-900 shadow-sm focus:border-emerald-600 focus:outline-none"
                     >
-                      <option value="Weighbridge Operator">Weighbridge & Scale Incharge</option>
-                      <option value="Quality Assayer">Quality Assayer / Grain Inspector</option>
-                      <option value="Token & Queue Manager">Token & Queue Supervisor</option>
-                      <option value="Billing & DBT Officer">Billing & DBT Accounts Clerk</option>
+                      <option value="Weighbridge Operator">
+                        Weighbridge & Scale Incharge
+                      </option>
+                      <option value="Quality Assayer">
+                        Quality Assayer / Grain Inspector
+                      </option>
+                      <option value="Token & Queue Manager">
+                        Token & Queue Supervisor
+                      </option>
+                      <option value="Billing & DBT Officer">
+                        Billing & DBT Accounts Clerk
+                      </option>
                     </select>
                   </div>
 
@@ -291,7 +333,9 @@ export default function OperatorRegistration() {
                 {/* Password Fields */}
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
-                    <label className="text-xs font-bold text-gray-700">Create Password</label>
+                    <label className="text-xs font-bold text-gray-700">
+                      Create Password
+                    </label>
                     <div className="relative mt-1.5">
                       <Lock className="absolute left-3.5 top-3 h-4 w-4 text-gray-400" />
                       <input
@@ -307,7 +351,9 @@ export default function OperatorRegistration() {
                   </div>
 
                   <div>
-                    <label className="text-xs font-bold text-gray-700">Confirm Password</label>
+                    <label className="text-xs font-bold text-gray-700">
+                      Confirm Password
+                    </label>
                     <div className="relative mt-1.5">
                       <Lock className="absolute left-3.5 top-3 h-4 w-4 text-gray-400" />
                       <input
@@ -347,11 +393,22 @@ export default function OperatorRegistration() {
                 </div>
 
                 <div>
-                  <h3 className="text-base font-bold text-gray-900">Verify Official Mobile Number</h3>
+                  <h3 className="text-base font-bold text-gray-900">
+                    Verify Official Mobile Number
+                  </h3>
                   <p className="mt-1 text-xs text-gray-500">
-                    Enter the 4-digit authentication code sent to <span className="font-semibold text-gray-800">+91 {formData.phone || '98765 43210'}</span>
+                    Enter the 4-digit authentication code sent to{" "}
+                    <span className="font-semibold text-gray-800">
+                      +91 {formData.phone || "98765 43210"}
+                    </span>
                   </p>
                 </div>
+
+                {errorMessage && (
+                  <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-left text-xs text-red-800">
+                    {errorMessage}
+                  </div>
+                )}
 
                 {/* 4-Box OTP Input */}
                 <div className="flex justify-center gap-3">
@@ -371,9 +428,12 @@ export default function OperatorRegistration() {
                 <div className="space-y-3">
                   <button
                     type="submit"
+                    disabled={isSubmitting}
                     className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#14532d] py-3.5 text-xs font-bold text-white shadow-md transition hover:bg-[#0f3e21]"
                   >
-                    Complete Onboarding
+                    {isSubmitting
+                      ? "Creating operator account..."
+                      : "Complete Onboarding"}
                     <CheckCircle2 className="h-4 w-4" />
                   </button>
 
