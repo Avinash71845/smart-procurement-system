@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -20,8 +20,13 @@ import {
   Layers,
   QrCode,
   LogOut,
+  CalendarPlus,
+  Search,
+  RefreshCw,
+  TrendingUp,
 } from "lucide-react";
 import { clearSession } from "../../utils/session";
+import { fetchIntakeBoard, fetchCommodityPrices } from "../../api/commodityApi";
 
 const operatorFeatures = [
   {
@@ -53,6 +58,35 @@ const operatorFeatures = [
 export default function OperatorHome() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
+
+  // Live Yard Intake Board & Real-Time Prices
+  const [intakeBoard, setIntakeBoard] = useState(null);
+  const [allCommodities, setAllCommodities] = useState([]);
+  const [intakeSearchQuery, setIntakeSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("All");
+  const [loadingIntake, setLoadingIntake] = useState(false);
+
+  const loadIntakeData = async () => {
+    setLoadingIntake(true);
+    try {
+      const [board, commodities] = await Promise.all([
+        fetchIntakeBoard(),
+        fetchCommodityPrices(),
+      ]);
+      if (board) setIntakeBoard(board);
+      if (commodities) setAllCommodities(commodities);
+    } catch (err) {
+      console.error("Failed to load intake data:", err);
+    } finally {
+      setLoadingIntake(false);
+    }
+  };
+
+  useEffect(() => {
+    loadIntakeData();
+    const interval = setInterval(loadIntakeData, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleLogout = () => {
     clearSession();
@@ -350,69 +384,212 @@ export default function OperatorHome() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5 }}
-          className="mt-16 rounded-2xl border border-emerald-900/10 bg-white/80 p-6 shadow-sm backdrop-blur-md"
+          className="mt-16 rounded-2xl border border-emerald-900/10 bg-white/90 p-6 shadow-sm backdrop-blur-md"
         >
-          <div className="flex flex-col items-start justify-between gap-4 border-b border-gray-100 pb-4 sm:flex-row sm:items-center">
+          {/* Header Row */}
+          <div className="flex flex-col items-start justify-between gap-4 border-b border-gray-100 pb-5 sm:flex-row sm:items-center">
             <div>
-              <span className="text-[11px] font-bold tracking-wider text-emerald-700 uppercase">
-                Live Yard Intake Board
-              </span>
-              <h2 className="text-lg font-bold text-gray-900">
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-extrabold tracking-wider text-emerald-700 uppercase">
+                  Live Yard Intake Board
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-600 animate-ping" />
+                  Real-Time API Sync
+                </span>
+              </div>
+              <h2 className="mt-1 text-lg font-black text-gray-900">
                 Today's Procurement Target & Intake Tonnage
               </h2>
             </div>
-            <button
-              onClick={() => navigate("/operatordashboard")}
-              className="flex items-center gap-1 text-xs font-bold text-[#14532d] hover:underline"
-            >
-              Full Center Report <ChevronRight className="h-3.5 w-3.5" />
-            </button>
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={loadIntakeData}
+                disabled={loadingIntake}
+                className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 active:scale-95 disabled:opacity-60"
+                title="Refresh Intake Rates"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 text-emerald-700 ${loadingIntake ? "animate-spin" : ""}`} />
+                <span>{loadingIntake ? "Syncing..." : "Refresh"}</span>
+              </button>
+
+              <button
+                onClick={() => navigate("/operatordashboard")}
+                className="flex items-center gap-1 text-xs font-bold text-[#14532d] hover:underline"
+              >
+                Full Center Report <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
           </div>
 
-          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
-            {[
-              {
-                crop: "Wheat (Grade A)",
-                weight: "1,420 Qtl",
-                status: "Target 92%",
-              },
-              {
-                crop: "Paddy (Common)",
-                weight: "980 Qtl",
-                status: "Target 84%",
-              },
-              {
-                crop: "Mustard Seeds",
-                weight: "650 Qtl",
-                status: "Target 78%",
-              },
-              {
-                crop: "Cotton (Medium)",
-                weight: "420 Qtl",
-                status: "Target 65%",
-              },
-              { crop: "Gram (Chana)", weight: "540 Qtl", status: "Target 88%" },
-              {
-                crop: "Soybean (Yellow)",
-                weight: "310 Qtl",
-                status: "Target 50%",
-              },
-            ].map((item, idx) => (
-              <div
-                key={idx}
-                className="rounded-xl border border-gray-100 bg-[#f9fbf8] p-3 text-center transition hover:border-emerald-200"
-              >
-                <span className="block text-xs font-medium text-gray-500">
-                  {item.crop}
-                </span>
-                <span className="mt-1 block text-sm font-extrabold text-gray-900">
-                  {item.weight}
-                </span>
-                <span className="mt-0.5 inline-block text-[10px] font-bold text-emerald-700">
-                  {item.status}
-                </span>
+          {/* Aggregate Metrics Bar */}
+          {intakeBoard && (
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-gradient-to-r from-emerald-50 via-green-50 to-emerald-50/50 p-3.5 border border-emerald-100 text-xs">
+              <div className="flex items-center gap-6">
+                <div>
+                  <span className="text-[10px] font-semibold text-gray-500 uppercase block">Total Intake Tonnage</span>
+                  <span className="text-sm font-black text-emerald-900">
+                    {intakeBoard.totalIntakeTonnageQtl?.toLocaleString()} Qtl
+                  </span>
+                </div>
+                <div className="h-6 w-px bg-emerald-200" />
+                <div>
+                  <span className="text-[10px] font-semibold text-gray-500 uppercase block">Total Target Target</span>
+                  <span className="text-sm font-black text-gray-800">
+                    {intakeBoard.totalTargetTonnageQtl?.toLocaleString()} Qtl
+                  </span>
+                </div>
+                <div className="h-6 w-px bg-emerald-200 hidden sm:block" />
+                <div className="hidden sm:block">
+                  <span className="text-[10px] font-semibold text-gray-500 uppercase block">Overall Completion</span>
+                  <span className="text-sm font-black text-emerald-700">
+                    {intakeBoard.overallTargetPercentage}% Target
+                  </span>
+                </div>
               </div>
-            ))}
+
+              <div className="text-[11px] text-gray-500 font-medium">
+                Last updated: <span className="font-bold text-gray-700">{intakeBoard.lastUpdated}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Search & Category Filter Bar */}
+          <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            {/* Search input */}
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search any crop (e.g. Wheat, गेहूं, Sarson, Chana, धान)..."
+                value={intakeSearchQuery}
+                onChange={(e) => setIntakeSearchQuery(e.target.value)}
+                className="w-full rounded-xl border border-gray-200 bg-white py-2 pl-10 pr-4 text-xs font-medium text-gray-800 placeholder-gray-400 shadow-sm transition focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+              />
+              {intakeSearchQuery && (
+                <button
+                  onClick={() => setIntakeSearchQuery("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 hover:text-gray-600 font-bold"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            {/* Category Filter Pills */}
+            <div className="flex flex-wrap gap-1.5">
+              {["All", "Cereals", "Pulses", "Oilseeds", "Commercial"].map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                    selectedCategory === cat
+                      ? "bg-[#14532d] text-white shadow-sm"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Dynamic Crop Cards Grid */}
+          <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            {(() => {
+              const sourceList =
+                allCommodities.length > 0
+                  ? allCommodities
+                  : intakeBoard?.crops || [];
+
+              const filtered = sourceList.filter((item) => {
+                const matchesCat =
+                  selectedCategory === "All" ||
+                  item.category?.toLowerCase() === selectedCategory.toLowerCase();
+                if (!matchesCat) return false;
+
+                if (!intakeSearchQuery.trim()) {
+                  // Default view: show primary 6 yard intake crops if no query and 'All' category
+                  return selectedCategory !== "All" || [
+                    "wheat-grade-a", "paddy-common", "mustard-seeds",
+                    "cotton-medium", "gram-chana", "soybean-yellow"
+                  ].includes(item.id);
+                }
+
+                const q = intakeSearchQuery.trim().toLowerCase();
+                return (
+                  item.nameEn?.toLowerCase().includes(q) ||
+                  item.nameHi?.toLowerCase().includes(q) ||
+                  item.category?.toLowerCase().includes(q) ||
+                  item.grade?.toLowerCase().includes(q)
+                );
+              });
+
+              if (filtered.length === 0) {
+                return (
+                  <div className="col-span-full py-8 text-center text-xs text-gray-500">
+                    No crops found matching "{intakeSearchQuery}".{" "}
+                    <button
+                      onClick={() => {
+                        setIntakeSearchQuery("");
+                        setSelectedCategory("All");
+                      }}
+                      className="font-bold text-emerald-700 underline ml-1"
+                    >
+                      Clear Filters
+                    </button>
+                  </div>
+                );
+              }
+
+              return filtered.map((item) => (
+                <div
+                  key={item.id}
+                  className="group relative rounded-xl border border-gray-100 bg-[#f9fbf8] p-3 text-center transition-all duration-200 hover:border-emerald-300 hover:bg-white hover:shadow-md"
+                >
+                  {/* Category Pill */}
+                  <div className="flex items-center justify-between gap-1 mb-1">
+                    <span className="text-[9px] font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded">
+                      {item.category}
+                    </span>
+                    <span
+                      className={`text-[9px] font-extrabold ${
+                        item.trend?.startsWith("+") ? "text-emerald-700" : "text-red-500"
+                      }`}
+                    >
+                      {item.trend}
+                    </span>
+                  </div>
+
+                  {/* Crop Names */}
+                  <span className="block text-xs font-bold text-gray-800 truncate" title={item.nameEn}>
+                    {item.nameEn}
+                  </span>
+                  {item.nameHi && (
+                    <span className="block text-[10px] font-medium text-gray-400">
+                      {item.nameHi}
+                    </span>
+                  )}
+
+                  {/* Weight / Tonnage */}
+                  <div className="mt-2 border-t border-gray-100 pt-1.5">
+                    <span className="block text-xs font-black text-gray-900">
+                      {item.targetTonnageQtl ? `${item.targetTonnageQtl.toLocaleString()} Qtl` : `${item.marketPrice} / Qtl`}
+                    </span>
+                    <span className="inline-block text-[10px] font-bold text-emerald-700">
+                      {item.status || `Target ${item.targetPercentage}%`}
+                    </span>
+                  </div>
+
+                  {/* Official Govt MSP Rate */}
+                  <div className="mt-2 rounded-lg bg-emerald-50/90 py-1.5 px-2 text-[10px] text-emerald-900 border border-emerald-100">
+                    <span className="text-gray-500 font-bold block text-[9px] uppercase">Official Govt MSP</span>
+                    <span className="font-extrabold text-xs text-[#14532d]">₹{item.mspRate?.toLocaleString()} / Qtl</span>
+                  </div>
+                </div>
+              ));
+            })()}
           </div>
         </motion.div>
       </main>

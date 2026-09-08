@@ -13,4 +13,6 @@ public class PaymentUpdateRequest {
     private PaymentStatus status;
 
     private String transactionId;
+
+    private Double amount;
 }

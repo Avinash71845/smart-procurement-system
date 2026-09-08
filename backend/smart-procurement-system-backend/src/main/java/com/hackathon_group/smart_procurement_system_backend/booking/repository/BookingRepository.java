@@ -10,7 +10,13 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 
     List<Booking> findByFarmer_Id(Long farmerId);
 
+    List<Booking> findByFarmer_IdOrderByBookingDateDesc(Long farmerId);
+
     List<Booking> findBySlot_Id(Long slotId);
 
     Optional<Booking> findByTokenNumber(String tokenNumber);
+
+    List<Booking> findAllByOrderByBookingDateDesc();
+
+    List<Booking> findBySlot_ProcurementCentre_IdOrderByBookingDateDesc(Long centreId);
 }

@@ -3,6 +3,7 @@ package com.hackathon_group.smart_procurement_system_backend.queue.service;
 import com.hackathon_group.smart_procurement_system_backend.booking.entity.Booking;
 import com.hackathon_group.smart_procurement_system_backend.booking.entity.BookingStatus;
 import com.hackathon_group.smart_procurement_system_backend.booking.repository.BookingRepository;
+import com.hackathon_group.smart_procurement_system_backend.booking.service.BookingService;
 import com.hackathon_group.smart_procurement_system_backend.queue.dto.QueueTokenResponse;
 import com.hackathon_group.smart_procurement_system_backend.queue.entity.QueueStatus;
 import com.hackathon_group.smart_procurement_system_backend.queue.entity.QueueToken;
@@ -20,6 +21,7 @@ public class QueueService {
 
     private final QueueTokenRepository queueTokenRepository;
     private final BookingRepository bookingRepository;
+        private final BookingService bookingService;
 
     // 1. Farmer Gate Check-in
     @Transactional
@@ -73,6 +75,15 @@ public class QueueService {
                 .map(this::mapToResponse)
                 .toList();
     }
+
+        @Transactional(readOnly = true)
+        public QueueTokenResponse getMyQueue(Long bookingId, String mobile) {
+                bookingService.getBooking(bookingId, mobile);
+
+                return queueTokenRepository.findByBookingId(bookingId)
+                                .map(this::mapToResponse)
+                                .orElse(null);
+        }
 
     // Operator starts processing the farmer.
 // CALLED → IN_PROGRESS

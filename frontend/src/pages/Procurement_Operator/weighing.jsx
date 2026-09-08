@@ -479,8 +479,8 @@ export default function WeighingQualityBroadcast() {
                     onChange={(e) => setLiveGrade(e.target.value)}
                     className="mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-xs text-gray-900 focus:border-emerald-600 focus:outline-none"
                   >
-                    <option value="Grade A">Grade A - Full MSP Rate (₹2,275/Qtl)</option>
-                    <option value="Grade B (Minor Deduction)">Grade B - Minor Moisture Deduction (₹2,240/Qtl)</option>
+                    <option value="Grade A">Grade A - Full MSP Rate (₹2,585/Qtl)</option>
+                    <option value="Grade B (Minor Deduction)">Grade B - Minor Moisture Deduction (₹2,520/Qtl)</option>
                     <option value="Grade C (Dockage Applied)">Grade C - Dockage & Cleaning Deduction</option>
                   </select>
                 </div>

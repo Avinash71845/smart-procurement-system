@@ -10,9 +10,12 @@ const api = axios.create({
 
 // Attach Authorization Header automatically
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("FARMER_JWT") || "FARMER_JWT";
+  const token =
+    localStorage.getItem("FARMER_JWT") ||
+    localStorage.getItem("token") ||
+    localStorage.getItem("OPERATOR_JWT");
   if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+    config.headers.Authorization = `Bearer ${token.replace(/^"|"$/g, "").trim()}`;
   }
   return config;
 });

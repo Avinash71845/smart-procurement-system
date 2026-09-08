@@ -36,16 +36,14 @@ public class FarmerService {
         Optional<Farmer> existingFarmer =
                 farmerRepository.findByUserId(user.getId());
 
+        Farmer farmer;
         if (existingFarmer.isPresent()) {
-            throw new IllegalArgumentException("Farmer profile already exists");
+            farmer = existingFarmer.get();
+        } else {
+            farmer = new Farmer();
+            farmer.setUserId(user.getId());
         }
 
-        // Get actual user ID
-        Long userId = user.getId();
-
-        Farmer farmer = new Farmer();
-
-        farmer.setUserId(userId);
         farmer.setName(request.getName());
         farmer.setAdhaar(request.getAdhaar());
         farmer.setPhone(request.getPhone());
@@ -58,6 +56,19 @@ public class FarmerService {
         Farmer savedFarmer = farmerRepository.save(farmer);
 
         return mapToResponse(savedFarmer);
+    }
+
+    // get by mobile for logged-in user
+    public FarmerResponse getFarmerByMobile(String mobile) {
+        User user = userRepository.findByMobile(mobile)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("User not found"));
+
+        Farmer farmer = farmerRepository.findByUserId(user.getId())
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Farmer profile not found"));
+
+        return mapToResponse(farmer);
     }
 
 

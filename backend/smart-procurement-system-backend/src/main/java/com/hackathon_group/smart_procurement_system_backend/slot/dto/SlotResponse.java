@@ -22,4 +22,10 @@ public class SlotResponse {
     private LocalTime endTime;
 
     private SlotStatus status;
+
+    private Double capacityKg;
+
+    private Double bookedCapacityKg;
+
+    private Double availableCapacityKg;
 }

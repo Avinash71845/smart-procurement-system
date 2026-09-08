@@ -145,6 +145,11 @@ public class SlotService {
         response.setStartTime(slot.getStartTime());
         response.setEndTime(slot.getEndTime());
         response.setStatus(slot.getStatus());
+        response.setCapacityKg(slot.getCapacityKg());
+        response.setBookedCapacityKg(slot.getBookedCapacityKg());
+        double capacity = slot.getCapacityKg() != null ? slot.getCapacityKg() : 0.0;
+        double booked = slot.getBookedCapacityKg() != null ? slot.getBookedCapacityKg() : 0.0;
+        response.setAvailableCapacityKg(Math.max(0.0, capacity - booked));
 
         return response;
     }

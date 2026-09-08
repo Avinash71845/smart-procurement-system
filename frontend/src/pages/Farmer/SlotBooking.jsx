@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useEffect, useState, useMemo, useRef } from "react";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Sprout,
@@ -18,8 +18,15 @@ import {
   Check,
   Info,
   Timer,
+  RefreshCw,
+  PlusCircle,
+  Search,
+  ChevronDown,
+  X,
+  Filter,
 } from "lucide-react";
 import { getActiveCentres } from "../../api/procurementApi";
+import { fetchCommodityPrices, FALLBACK_CROPS } from "../../api/commodityApi";
 
 // =====================================================
 // CONFIG
@@ -28,43 +35,78 @@ import { getActiveCentres } from "../../api/procurementApi";
 const API_BASE_URL = "";
 
 // =====================================================
-// CROP CATALOG
+// CROP CATALOG & GOVERNMENT MSP BENCHMARKS
 // =====================================================
 
-const CROP_CATALOG = [
+// Top 4 Quick-Select Mandi Staples
+const POPULAR_CROPS = [
   {
     id: "wheat",
+    aliases: ["wheat", "wheat-grade-a"],
     name: "Wheat (गेहूं)",
-    mspRate: 2275,
+    nameEn: "Wheat",
+    nameHi: "गेहूं",
+    mspRate: 2585,
     unit: "Qtl",
-    season: "Rabi 2026",
+    category: "Cereals",
+    season: "Rabi 2026-27 (Official MSP)",
     maxMoisture: "12%",
   },
   {
     id: "mustard",
+    aliases: ["mustard", "mustard-seeds"],
     name: "Mustard (सरसों)",
-    mspRate: 5650,
+    nameEn: "Mustard",
+    nameHi: "सरसों",
+    mspRate: 6200,
     unit: "Qtl",
-    season: "Rabi 2026",
+    category: "Oilseeds",
+    season: "Rabi 2026-27 (Official MSP)",
     maxMoisture: "8%",
   },
   {
     id: "gram",
+    aliases: ["gram", "gram-chana"],
     name: "Gram / Chana (चना)",
-    mspRate: 5440,
+    nameEn: "Gram / Chana",
+    nameHi: "चना",
+    mspRate: 5875,
     unit: "Qtl",
-    season: "Rabi 2026",
+    category: "Pulses",
+    season: "Rabi 2026-27 (Official MSP)",
     maxMoisture: "10%",
   },
   {
     id: "paddy",
+    aliases: ["paddy", "paddy-common", "paddy-grade-a"],
     name: "Paddy / Rice (धान)",
-    mspRate: 2300,
+    nameEn: "Paddy / Rice",
+    nameHi: "धान",
+    mspRate: 2441,
     unit: "Qtl",
-    season: "Kharif Buffer",
+    category: "Cereals",
+    season: "Kharif 2026 (Official MSP)",
     maxMoisture: "14%",
   },
 ];
+
+// Preserving CROP_CATALOG alias
+const CROP_CATALOG = POPULAR_CROPS;
+
+// Normalize all fallback crops into a unified list
+const DEFAULT_ALL_CROPS = FALLBACK_CROPS.map((crop) => ({
+  id: crop.id,
+  aliases: [crop.id],
+  name: `${crop.nameEn}${crop.nameHi ? ` (${crop.nameHi})` : ""}`,
+  nameEn: crop.nameEn,
+  nameHi: crop.nameHi || "",
+  mspRate: Number(crop.mspRate) || 0,
+  unit: "Qtl",
+  category: crop.category || "Cereals",
+  grade: crop.grade || "Standard",
+  season: "Official CCEA MSP",
+  maxMoisture: "12%",
+}));
 
 // =====================================================
 // MANDI CENTERS
@@ -87,6 +129,7 @@ const CROP_CATALOG = [
 
 export default function FarmerSlotBooking() {
   const navigate = useNavigate();
+  const location = useLocation();
 
   // ===================================================
   // STEP
@@ -101,8 +144,20 @@ export default function FarmerSlotBooking() {
   const [loading, setLoading] = useState(false);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [loadingSlotDetails, setLoadingSlotDetails] = useState(false);
+  const [isRefreshingCentres, setIsRefreshingCentres] = useState(false);
+  const [isRefreshingSlots, setIsRefreshingSlots] = useState(false);
+  const [isGeneratingSlots, setIsGeneratingSlots] = useState(false);
 
   const [apiError, setApiError] = useState(null);
+
+  // Today's date helper (YYYY-MM-DD)
+  const getTodayDateString = () => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
 
   // ===================================================
   // API DATA
@@ -127,7 +182,7 @@ export default function FarmerSlotBooking() {
 
     selectedMandiId: "",
 
-    bookingDate: "2026-09-07",
+    bookingDate: getTodayDateString(),
 
     selectedSlotId: "",
 
@@ -141,12 +196,176 @@ export default function FarmerSlotBooking() {
   const [bookingResult, setBookingResult] = useState(null);
 
   // ===================================================
-  // SELECTED CROP
+  // CROP SEARCH & SELECTION STATE
   // ===================================================
 
-  const selectedCrop =
-    CROP_CATALOG.find((c) => c.id === bookingData.selectedCropId) ||
-    CROP_CATALOG[0];
+  const [allCrops, setAllCrops] = useState(DEFAULT_ALL_CROPS);
+  const [cropDropdownOpen, setCropDropdownOpen] = useState(false);
+  const [cropSearchQuery, setCropSearchQuery] = useState("");
+  const [cropCategoryFilter, setCropCategoryFilter] = useState("All");
+  const cropDropdownRef = useRef(null);
+
+  // Load real-time commodities from backend or fallbacks
+  useEffect(() => {
+    let isMounted = true;
+    fetchCommodityPrices()
+      .then((data) => {
+        if (!isMounted || !Array.isArray(data) || data.length === 0) return;
+        const mapped = data.map((crop) => ({
+          id: crop.id,
+          aliases: [crop.id],
+          name: `${crop.nameEn || crop.name}${crop.nameHi ? ` (${crop.nameHi})` : ""}`,
+          nameEn: crop.nameEn || crop.name,
+          nameHi: crop.nameHi || "",
+          mspRate: Number(crop.mspRate) || 0,
+          unit: "Qtl",
+          category: crop.category || "Cereals",
+          grade: crop.grade || "Standard",
+          season: "Official CCEA MSP",
+          maxMoisture: "12%",
+        }));
+        setAllCrops(mapped);
+      })
+      .catch((err) => console.warn("Could not load dynamic crop prices:", err));
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        cropDropdownRef.current &&
+        !cropDropdownRef.current.contains(event.target)
+      ) {
+        setCropDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Update booking data if navigating from cards with state
+  useEffect(() => {
+    if (location.state) {
+      const state = location.state;
+      let matchedCropId = null;
+
+      if (state.cropId) {
+        const id = String(state.cropId).toLowerCase();
+        // Check if popular crop alias matches
+        const pop = POPULAR_CROPS.find(
+          (p) =>
+            p.id.toLowerCase() === id ||
+            p.aliases.some((a) => a.toLowerCase() === id)
+        );
+        if (pop) {
+          matchedCropId = pop.id;
+        } else {
+          // Check all crops
+          const allFound = allCrops.find(
+            (c) =>
+              c.id.toLowerCase() === id ||
+              c.aliases?.some((a) => a.toLowerCase() === id)
+          );
+          if (allFound) matchedCropId = allFound.id;
+          else matchedCropId = state.cropId;
+        }
+      } else if (state.selectedCrop) {
+        const lower = String(state.selectedCrop).toLowerCase();
+        const pop = POPULAR_CROPS.find(
+          (p) =>
+            p.name.toLowerCase().includes(lower) ||
+            p.nameEn.toLowerCase().includes(lower) ||
+            p.aliases.some((a) => lower.includes(a))
+        );
+        if (pop) {
+          matchedCropId = pop.id;
+        } else {
+          const allFound = allCrops.find(
+            (c) =>
+              c.name.toLowerCase().includes(lower) ||
+              c.nameEn?.toLowerCase().includes(lower) ||
+              c.id.toLowerCase().includes(lower)
+          );
+          if (allFound) matchedCropId = allFound.id;
+        }
+      }
+
+      setBookingData((prev) => ({
+        ...prev,
+        ...(matchedCropId ? { selectedCropId: matchedCropId } : {}),
+        ...(state.quantityQtl ? { quantityQtl: String(state.quantityQtl) } : {}),
+        ...(state.procurementCentreId ? { selectedMandiId: String(state.procurementCentreId) } : {}),
+      }));
+    }
+  }, [location.state, allCrops]);
+
+  // ===================================================
+  // RESOLVE SELECTED CROP DYNAMICALLY
+  // ===================================================
+
+  const selectedCrop = useMemo(() => {
+    const targetId = String(bookingData.selectedCropId || "").toLowerCase();
+
+    // 1. Direct or alias match in POPULAR_CROPS
+    const popMatch = POPULAR_CROPS.find(
+      (c) =>
+        c.id.toLowerCase() === targetId ||
+        c.aliases?.some((a) => a.toLowerCase() === targetId)
+    );
+    if (popMatch) return popMatch;
+
+    // 2. Direct or alias match in allCrops
+    const allMatch = allCrops.find(
+      (c) =>
+        c.id.toLowerCase() === targetId ||
+        c.aliases?.some((a) => a.toLowerCase() === targetId) ||
+        c.nameEn?.toLowerCase() === targetId
+    );
+    if (allMatch) return allMatch;
+
+    // 3. Substring match
+    const subMatch = allCrops.find(
+      (c) =>
+        c.id.toLowerCase().includes(targetId) ||
+        targetId.includes(c.id.toLowerCase())
+    );
+    if (subMatch) return subMatch;
+
+    return POPULAR_CROPS[0];
+  }, [allCrops, bookingData.selectedCropId]);
+
+  // Helper to check if crop is active
+  const isCropSelected = (crop) => {
+    if (!crop) return false;
+    const currentId = String(bookingData.selectedCropId || "").toLowerCase();
+    const cropId = String(crop.id || "").toLowerCase();
+    if (currentId === cropId) return true;
+    if (crop.aliases?.some((a) => a.toLowerCase() === currentId)) return true;
+    if (selectedCrop.id.toLowerCase() === cropId) return true;
+    return false;
+  };
+
+  // Filter crops for search dropdown
+  const filteredCrops = useMemo(() => {
+    const q = cropSearchQuery.trim().toLowerCase();
+    return allCrops.filter((crop) => {
+      const matchesCat =
+        cropCategoryFilter === "All" ||
+        crop.category?.toLowerCase() === cropCategoryFilter.toLowerCase();
+      if (!matchesCat) return false;
+      if (!q) return true;
+      return (
+        crop.nameEn?.toLowerCase().includes(q) ||
+        crop.nameHi?.toLowerCase().includes(q) ||
+        crop.name?.toLowerCase().includes(q) ||
+        crop.category?.toLowerCase().includes(q) ||
+        crop.grade?.toLowerCase().includes(q)
+      );
+    });
+  }, [allCrops, cropSearchQuery, cropCategoryFilter]);
 
   // ===================================================
   // SELECTED MANDI
@@ -196,20 +415,16 @@ export default function FarmerSlotBooking() {
   // Get slots for ONLY ONE CENTRE
   // ===================================================
 
-  const fetchSlotsByCentre = async (centreId) => {
+  const fetchSlotsByCentre = async (centreId, isPolling = false) => {
     if (!centreId) return;
 
     try {
-      setLoadingSlots(true);
-      setApiError(null);
-
-      setSlots([]);
-      setSelectedSlotDetails(null);
-
-      setBookingData((prev) => ({
-        ...prev,
-        selectedSlotId: "",
-      }));
+      if (!isPolling) {
+        setLoadingSlots(true);
+        setApiError(null);
+      } else {
+        setIsRefreshingSlots(true);
+      }
 
       const response = await fetch(
         `${API_BASE_URL}/api/slots/centre/${centreId}`,
@@ -238,14 +453,27 @@ export default function FarmerSlotBooking() {
         : data.data || data.content || [];
 
       setSlots(slotData);
+
+      // Preserve selection if slot still exists
+      setBookingData((prev) => {
+        if (!prev.selectedSlotId) return prev;
+        const exists = slotData.some(
+          (s) => String(getSlotId(s)) === String(prev.selectedSlotId),
+        );
+        return exists ? prev : { ...prev, selectedSlotId: "" };
+      });
     } catch (error) {
       console.error("Centre slots API error:", error);
 
-      setApiError(error.message || "Unable to load slots for this centre.");
-
-      setSlots([]);
+      if (!isPolling) {
+        setApiError(error.message || "Unable to load slots for this centre.");
+        setSlots([]);
+      }
     } finally {
-      setLoadingSlots(false);
+      if (!isPolling) {
+        setLoadingSlots(false);
+      }
+      setIsRefreshingSlots(false);
     }
   };
 
@@ -257,20 +485,16 @@ export default function FarmerSlotBooking() {
   // Get slots for ONE CENTRE + ONE DATE
   // ===================================================
 
-  const fetchSlotsByCentreAndDate = async (centreId, date) => {
+  const fetchSlotsByCentreAndDate = async (centreId, date, isPolling = false) => {
     if (!centreId || !date) return;
 
     try {
-      setLoadingSlots(true);
-      setApiError(null);
-
-      setSlots([]);
-      setSelectedSlotDetails(null);
-
-      setBookingData((prev) => ({
-        ...prev,
-        selectedSlotId: "",
-      }));
+      if (!isPolling) {
+        setLoadingSlots(true);
+        setApiError(null);
+      } else {
+        setIsRefreshingSlots(true);
+      }
 
       const response = await fetch(
         `${API_BASE_URL}/api/slots/centre/${centreId}/date?date=${encodeURIComponent(
@@ -295,14 +519,27 @@ export default function FarmerSlotBooking() {
         : data.data || data.content || [];
 
       setSlots(slotData);
+
+      // Preserve selection if slot still exists
+      setBookingData((prev) => {
+        if (!prev.selectedSlotId) return prev;
+        const exists = slotData.some(
+          (s) => String(getSlotId(s)) === String(prev.selectedSlotId),
+        );
+        return exists ? prev : { ...prev, selectedSlotId: "" };
+      });
     } catch (error) {
       console.error("Centre + date slots API error:", error);
 
-      setApiError(error.message || "Unable to load slots for this date.");
-
-      setSlots([]);
+      if (!isPolling) {
+        setApiError(error.message || "Unable to load slots for this date.");
+        setSlots([]);
+      }
     } finally {
-      setLoadingSlots(false);
+      if (!isPolling) {
+        setLoadingSlots(false);
+      }
+      setIsRefreshingSlots(false);
     }
   };
 
@@ -347,32 +584,74 @@ export default function FarmerSlotBooking() {
   };
 
   // ===================================================
-  // LOAD INITIAL CENTRE SLOTS
+  // LOAD MANDI CENTRES & LIVE POLLING (5 SECONDS)
   // ===================================================
 
-  useEffect(() => {
-    const loadCentres = async () => {
-      try {
+  const loadCentres = async (isPolling = false) => {
+    try {
+      if (!isPolling) {
+        setIsRefreshingCentres(true);
         setApiError(null);
-        const activeCentres = await getActiveCentres();
-        setCentres(activeCentres || []);
-        if (activeCentres?.length) {
-          setBookingData((prev) => ({
-            ...prev,
-            selectedMandiId:
-              prev.selectedMandiId || String(activeCentres[0].id),
-          }));
+      }
+
+      const activeCentres = await getActiveCentres();
+      if (Array.isArray(activeCentres)) {
+        setCentres(activeCentres);
+        if (activeCentres.length > 0) {
+          setBookingData((prev) => {
+            const exists = activeCentres.some(
+              (c) => String(c.id) === String(prev.selectedMandiId),
+            );
+            return {
+              ...prev,
+              selectedMandiId: exists
+                ? prev.selectedMandiId
+                : String(activeCentres[0].id),
+            };
+          });
         }
-      } catch (error) {
+      }
+    } catch (error) {
+      console.error("Centres load error:", error);
+      if (!isPolling) {
         setApiError(
           error.response?.data?.message ||
+            error.message ||
             "Unable to load procurement centres.",
         );
       }
-    };
+    } finally {
+      if (!isPolling) {
+        setIsRefreshingCentres(false);
+      }
+    }
+  };
 
+  useEffect(() => {
+    // Initial fetch of centres
     loadCentres();
   }, []);
+
+  useEffect(() => {
+    // Poll every 5 seconds
+    const interval = setInterval(() => {
+      if (step === 1) {
+        loadCentres(true);
+      } else if (
+        step === 2 &&
+        bookingData.selectedMandiId &&
+        bookingData.bookingDate
+      ) {
+        fetchSlotsByCentreAndDate(
+          bookingData.selectedMandiId,
+          bookingData.bookingDate,
+          true,
+        );
+      }
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [step, bookingData.selectedMandiId, bookingData.bookingDate]);
 
   // ===================================================
   // INPUT CHANGE
@@ -554,6 +833,47 @@ export default function FarmerSlotBooking() {
   };
 
   // ===================================================
+  // ON-DEMAND SLOT CREATION (AVAILABLE AT BOOKING PAGE)
+  // ===================================================
+
+  const handleQuickCreateDefaultSlots = async () => {
+    if (!bookingData.selectedMandiId || !bookingData.bookingDate) return;
+    setIsGeneratingSlots(true);
+    setApiError(null);
+
+    const windows = [
+      { startTime: "09:00:00", endTime: "11:00:00", capacityKg: 1200 },
+      { startTime: "11:30:00", endTime: "13:30:00", capacityKg: 1500 },
+      { startTime: "14:00:00", endTime: "16:00:00", capacityKg: 2000 },
+    ];
+
+    try {
+      for (const w of windows) {
+        await fetch(`${API_BASE_URL}/api/slots`, {
+          method: "POST",
+          headers: getHeaders(),
+          body: JSON.stringify({
+            procurementCentreId: Number(bookingData.selectedMandiId),
+            date: bookingData.bookingDate,
+            ...w,
+          }),
+        });
+      }
+
+      await fetchSlotsByCentreAndDate(
+        bookingData.selectedMandiId,
+        bookingData.bookingDate,
+        false,
+      );
+    } catch (err) {
+      console.error("Failed to generate default slots:", err);
+      setApiError("Unable to initialize slots for this date.");
+    } finally {
+      setIsGeneratingSlots(false);
+    }
+  };
+
+  // ===================================================
   // SLOT DISPLAY HELPERS
   // ===================================================
 
@@ -572,6 +892,12 @@ export default function FarmerSlotBooking() {
   };
 
   const getAvailableTokens = (slot) => {
+    if (
+      slot.availableCapacityKg !== undefined &&
+      slot.availableCapacityKg !== null
+    ) {
+      return `${Math.round(slot.availableCapacityKg)} kg open`;
+    }
     return (
       slot.availableTokens ??
       slot.available_tokens ??
@@ -583,6 +909,13 @@ export default function FarmerSlotBooking() {
   };
 
   const getSlotStatus = (slot) => {
+    if (
+      slot.availableCapacityKg !== undefined &&
+      slot.availableCapacityKg !== null &&
+      slot.availableCapacityKg <= 0
+    ) {
+      return "FULL";
+    }
     return slot.status ?? slot.slotStatus ?? "AVAILABLE";
   };
 
@@ -729,49 +1062,263 @@ export default function FarmerSlotBooking() {
                 </div>
 
                 <div className="mt-5 space-y-5">
-                  {/* CROP */}
+                  {/* CROP SELECTION WITH SEARCH DROPDOWN & QUICK TILES */}
 
                   <div>
-                    <label className="text-xs font-bold text-gray-700">
-                      Select Produce / Commodity
-                    </label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-gray-700">
+                        Select Produce / Commodity
+                      </label>
 
-                    <div className="mt-2 grid grid-cols-2 gap-2.5">
-                      {CROP_CATALOG.map((crop) => (
-                        <div
-                          key={crop.id}
-                          onClick={() =>
-                            setBookingData((p) => ({
-                              ...p,
-                              selectedCropId: crop.id,
-                            }))
-                          }
-                          className={`cursor-pointer rounded-2xl border p-3.5 transition ${
-                            bookingData.selectedCropId === crop.id
-                              ? "border-[#14532d] bg-emerald-50/60 shadow-sm ring-1 ring-[#14532d]"
-                              : "border-gray-200 bg-white hover:border-gray-300"
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-gray-900">
-                              {crop.name}
-                            </span>
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/80">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                        24+ CCEA MSP Crops
+                      </span>
+                    </div>
 
-                            {bookingData.selectedCropId === crop.id && (
-                              <CheckCircle2 className="h-4 w-4 text-[#14532d]" />
-                            )}
+                    {/* SEARCH SELECT DROPDOWN COMBOBOX */}
+                    <div className="relative mt-2" ref={cropDropdownRef}>
+                      {/* Combobox Trigger */}
+                      <button
+                        type="button"
+                        onClick={() => setCropDropdownOpen((prev) => !prev)}
+                        className={`flex items-center justify-between w-full rounded-2xl border px-3.5 py-2.5 text-left transition shadow-xs ${
+                          cropDropdownOpen
+                            ? "border-emerald-600 bg-white ring-2 ring-emerald-500/20"
+                            : "border-gray-200 bg-[#f9fbf8] hover:border-emerald-300 hover:bg-white"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-[#14532d]">
+                            <Search className="h-4 w-4 text-emerald-700" />
                           </div>
 
-                          <div className="mt-2 flex items-baseline justify-between text-[11px]">
-                            <span className="text-gray-500">MSP:</span>
+                          <div className="min-w-0">
+                            <div className="text-xs font-extrabold text-gray-900 truncate">
+                              {selectedCrop.name}
+                            </div>
+                            <div className="text-[10px] text-gray-500 flex items-center gap-1.5 truncate">
+                              <span className="font-bold text-emerald-800">
+                                {selectedCrop.category}
+                              </span>
+                              <span>•</span>
+                              <span>
+                                Govt MSP:{" "}
+                                <strong className="text-[#14532d] font-black">
+                                  ₹{selectedCrop.mspRate?.toLocaleString()}/Qtl
+                                </strong>
+                              </span>
+                            </div>
+                          </div>
+                        </div>
 
-                            <span className="font-extrabold text-[#14532d]">
-                              ₹{crop.mspRate}/{crop.unit}
+                        <div className="flex items-center gap-2 shrink-0 ml-2">
+                          <span className="hidden sm:inline-block rounded-lg bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-800 border border-emerald-200">
+                            Search All Crops
+                          </span>
+                          <ChevronDown
+                            className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${
+                              cropDropdownOpen ? "rotate-180 text-emerald-700" : ""
+                            }`}
+                          />
+                        </div>
+                      </button>
+
+                      {/* Dropdown Floating Menu */}
+                      <AnimatePresence>
+                        {cropDropdownOpen && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -6, scale: 0.99 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: -6, scale: 0.99 }}
+                            transition={{ duration: 0.15 }}
+                            className="absolute left-0 right-0 top-full z-50 mt-1.5 rounded-2xl border border-emerald-200/90 bg-white shadow-2xl overflow-hidden backdrop-blur-md"
+                          >
+                            {/* Search Field & Categories */}
+                            <div className="p-3 border-b border-gray-100 bg-[#f8faf7]">
+                              <div className="relative">
+                                <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-gray-400" />
+                                <input
+                                  type="text"
+                                  autoFocus
+                                  value={cropSearchQuery}
+                                  onChange={(e) => setCropSearchQuery(e.target.value)}
+                                  placeholder="Search any crop (e.g. Soybean, Mustard, मक्का, चना, Cotton...)"
+                                  className="w-full rounded-xl border border-gray-200 bg-white py-2 pl-9 pr-8 text-xs font-semibold text-gray-900 placeholder:text-gray-400 focus:border-emerald-600 focus:outline-none"
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                                {cropSearchQuery && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setCropSearchQuery("");
+                                    }}
+                                    className="absolute right-2.5 top-2.5 text-gray-400 hover:text-gray-600"
+                                  >
+                                    <X className="h-3.5 w-3.5" />
+                                  </button>
+                                )}
+                              </div>
+
+                              {/* Category Filter Chips */}
+                              <div className="mt-2 flex items-center gap-1.5 overflow-x-auto pb-0.5">
+                                {["All", "Cereals", "Pulses", "Oilseeds", "Commercial"].map((cat) => (
+                                  <button
+                                    key={cat}
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setCropCategoryFilter(cat);
+                                    }}
+                                    className={`shrink-0 rounded-lg px-2.5 py-1 text-[10px] font-bold transition ${
+                                      cropCategoryFilter === cat
+                                        ? "bg-[#14532d] text-white shadow-xs"
+                                        : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
+                                    }`}
+                                  >
+                                    {cat}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Dropdown Items List */}
+                            <div className="max-h-60 overflow-y-auto p-1.5 space-y-1">
+                              {filteredCrops.length === 0 ? (
+                                <div className="p-4 text-center text-xs text-gray-500">
+                                  No crops found matching "{cropSearchQuery}". Try another name or select from popular crops.
+                                </div>
+                              ) : (
+                                filteredCrops.map((crop) => {
+                                  const isSelected = isCropSelected(crop);
+                                  return (
+                                    <div
+                                      key={crop.id}
+                                      onClick={() => {
+                                        setBookingData((p) => ({
+                                          ...p,
+                                          selectedCropId: crop.id,
+                                        }));
+                                        setCropDropdownOpen(false);
+                                        setCropSearchQuery("");
+                                      }}
+                                      className={`flex cursor-pointer items-center justify-between rounded-xl px-3 py-2.5 text-xs transition ${
+                                        isSelected
+                                          ? "bg-emerald-50 text-emerald-950 font-bold border border-emerald-200"
+                                          : "hover:bg-gray-50 text-gray-800"
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-2.5 min-w-0">
+                                        {isSelected ? (
+                                          <CheckCircle2 className="h-4 w-4 text-[#14532d] shrink-0" />
+                                        ) : (
+                                          <div className="h-4 w-4 rounded-full border border-gray-300 shrink-0" />
+                                        )}
+                                        <div className="min-w-0">
+                                          <div className="flex items-center gap-1.5 truncate">
+                                            <span className="font-extrabold text-gray-900 truncate">
+                                              {crop.nameEn || crop.name}
+                                            </span>
+                                            {crop.nameHi && (
+                                              <span className="text-[11px] text-gray-500 truncate">
+                                                ({crop.nameHi})
+                                              </span>
+                                            )}
+                                          </div>
+                                          <div className="text-[10px] text-gray-400">
+                                            {crop.category} {crop.grade ? `• ${crop.grade}` : ""}
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      <div className="text-right shrink-0 ml-2">
+                                        <span className="rounded-lg bg-emerald-100/80 px-2 py-0.5 text-[11px] font-black text-[#14532d]">
+                                          ₹{crop.mspRate?.toLocaleString()}/Qtl
+                                        </span>
+                                        <span className="block text-[9px] text-gray-400 font-medium">
+                                          Official MSP
+                                        </span>
+                                      </div>
+                                    </div>
+                                  );
+                                })
+                              )}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+
+                    {/* 4 POPULAR QUICK-SELECT TILES */}
+                    <div className="mt-3">
+                      <div className="mb-1.5 flex items-center justify-between text-[11px]">
+                        <span className="font-bold text-gray-500 uppercase tracking-wider text-[10px]">
+                          Popular Commodities:
+                        </span>
+                        <span className="text-gray-400 text-[10px]">Tap to select</span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+                        {POPULAR_CROPS.map((crop) => {
+                          const isSelected = isCropSelected(crop);
+                          return (
+                            <div
+                              key={crop.id}
+                              onClick={() =>
+                                setBookingData((p) => ({
+                                  ...p,
+                                  selectedCropId: crop.id,
+                                }))
+                              }
+                              className={`cursor-pointer rounded-2xl border p-3 transition ${
+                                isSelected
+                                  ? "border-[#14532d] bg-emerald-50/60 shadow-sm ring-1 ring-[#14532d]"
+                                  : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50/40"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold text-gray-900 truncate">
+                                  {crop.name}
+                                </span>
+
+                                {isSelected && (
+                                  <CheckCircle2 className="h-4 w-4 text-[#14532d] shrink-0" />
+                                )}
+                              </div>
+
+                              <div className="mt-2 flex items-baseline justify-between text-[11px]">
+                                <span className="text-gray-500">MSP:</span>
+
+                                <span className="font-extrabold text-[#14532d]">
+                                  ₹{crop.mspRate}/{crop.unit}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* ACTIVE CUSTOM CROP NOTIFICATION (If farmer picked e.g. Soybean, Cotton, Maize, etc.) */}
+                    {!POPULAR_CROPS.some((c) => isCropSelected(c)) && (
+                      <div className="mt-2.5 flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50/80 p-3 text-xs">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <CheckCircle2 className="h-4 w-4 text-emerald-700 shrink-0" />
+                          <div className="truncate">
+                            <span className="font-extrabold text-gray-900">
+                              Selected Commodity: {selectedCrop.name}
+                            </span>
+                            <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                              {selectedCrop.category}
                             </span>
                           </div>
                         </div>
-                      ))}
-                    </div>
+                        <div className="shrink-0 text-right font-black text-[#14532d] ml-2">
+                          ₹{selectedCrop.mspRate?.toLocaleString()}/Qtl
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* QUANTITY */}
@@ -807,51 +1354,85 @@ export default function FarmerSlotBooking() {
                   {/* MANDI */}
 
                   <div>
-                    <label className="text-xs font-bold text-gray-700">
-                      Select Procurement Mandi Center
-                    </label>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-xs font-bold text-gray-700">
+                        Select Procurement Mandi Center
+                      </label>
 
-                    <div className="mt-2 space-y-2">
-                      {centres.map((mandi) => (
-                        <label
-                          key={mandi.id}
-                          className={`flex cursor-pointer items-center justify-between rounded-2xl border p-3.5 transition ${
-                            String(bookingData.selectedMandiId) ===
-                            String(mandi.id)
-                              ? "border-[#14532d] bg-emerald-50/60 shadow-sm ring-1 ring-[#14532d]"
-                              : "border-gray-200 bg-white hover:border-gray-300"
-                          }`}
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200">
+                          <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                          </span>
+                          Live • 5s
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => loadCentres(false)}
+                          disabled={isRefreshingCentres}
+                          className="flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2 py-1 text-[11px] font-bold text-gray-600 shadow-sm transition hover:bg-gray-50 hover:text-emerald-700 disabled:opacity-50"
+                          title="Refresh procurement centres"
                         >
-                          <div className="flex items-center gap-3">
-                            <input
-                              type="radio"
-                              name="selectedMandiId"
-                              value={mandi.id}
-                              checked={
-                                String(bookingData.selectedMandiId) ===
-                                String(mandi.id)
-                              }
-                              onChange={handleMandiChange}
-                              className="h-4 w-4 accent-[#14532d]"
-                            />
+                          <RefreshCw
+                            className={`h-3 w-3 ${
+                              isRefreshingCentres
+                                ? "animate-spin text-emerald-600"
+                                : ""
+                            }`}
+                          />
+                          Refresh
+                        </button>
+                      </div>
+                    </div>
 
-                            <div>
-                              <div className="text-xs font-bold text-gray-900">
-                                {mandi.name}
-                              </div>
+                    <div className="space-y-2">
+                      {centres.length === 0 ? (
+                        <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-center text-xs text-gray-500">
+                          No procurement centres available.
+                        </div>
+                      ) : (
+                        centres.map((mandi) => (
+                          <label
+                            key={mandi.id}
+                            className={`flex cursor-pointer items-center justify-between rounded-2xl border p-3.5 transition ${
+                              String(bookingData.selectedMandiId) ===
+                              String(mandi.id)
+                                ? "border-[#14532d] bg-emerald-50/60 shadow-sm ring-1 ring-[#14532d]"
+                                : "border-gray-200 bg-white hover:border-gray-300"
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <input
+                                type="radio"
+                                name="selectedMandiId"
+                                value={mandi.id}
+                                checked={
+                                  String(bookingData.selectedMandiId) ===
+                                  String(mandi.id)
+                                }
+                                onChange={handleMandiChange}
+                                className="h-4 w-4 accent-[#14532d]"
+                              />
 
-                              <div className="text-[11px] text-gray-500">
-                                {mandi.district}, {mandi.state} •{" "}
-                                {mandi.address}
+                              <div>
+                                <div className="text-xs font-bold text-gray-900">
+                                  {mandi.name}
+                                </div>
+
+                                <div className="text-[11px] text-gray-500">
+                                  {mandi.district}, {mandi.state} •{" "}
+                                  {mandi.address}
+                                </div>
                               </div>
                             </div>
-                          </div>
 
-                          <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-bold text-emerald-800">
-                            API
-                          </span>
-                        </label>
-                      ))}
+                            <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-bold text-emerald-800">
+                              API
+                            </span>
+                          </label>
+                        ))
+                      )}
                     </div>
                   </div>
 
@@ -1020,12 +1601,38 @@ export default function FarmerSlotBooking() {
                         Available Slots
                       </label>
 
-                      {loadingSlots && (
-                        <span className="flex items-center gap-1 text-[10px] text-emerald-700">
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                          Loading slots...
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200">
+                          <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                          </span>
+                          Live • 5s
                         </span>
-                      )}
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            fetchSlotsByCentreAndDate(
+                              bookingData.selectedMandiId,
+                              bookingData.bookingDate,
+                              false,
+                            )
+                          }
+                          disabled={loadingSlots || isRefreshingSlots}
+                          className="flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2 py-1 text-[11px] font-bold text-gray-600 shadow-sm transition hover:bg-gray-50 hover:text-emerald-700 disabled:opacity-50"
+                          title="Refresh slots"
+                        >
+                          <RefreshCw
+                            className={`h-3 w-3 ${
+                              loadingSlots || isRefreshingSlots
+                                ? "animate-spin text-emerald-600"
+                                : ""
+                            }`}
+                          />
+                          Refresh
+                        </button>
+                      </div>
                     </div>
 
                     <div className="mt-2 space-y-2">
@@ -1039,12 +1646,45 @@ export default function FarmerSlotBooking() {
                           <Clock className="mx-auto h-6 w-6 text-yellow-700" />
 
                           <p className="mt-2 text-xs font-bold text-yellow-900">
-                            No slots available
+                            No slots scheduled for {bookingData.bookingDate}
                           </p>
 
                           <p className="mt-1 text-[10px] text-yellow-700">
-                            Try another date or procurement centre.
+                            You can open standard arrival windows for this date now, or choose another date.
                           </p>
+
+                          <div className="mt-4 flex flex-col sm:flex-row items-center justify-center gap-2.5">
+                            <button
+                              type="button"
+                              onClick={handleQuickCreateDefaultSlots}
+                              disabled={isGeneratingSlots}
+                              className="flex items-center gap-1.5 rounded-xl bg-[#14532d] px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-[#0f3e21] disabled:opacity-50"
+                            >
+                              {isGeneratingSlots ? (
+                                <>
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  Creating Slots...
+                                </>
+                              ) : (
+                                <>
+                                  <PlusCircle className="h-3.5 w-3.5 text-[#00e699]" />
+                                  Create & Open Slots for this Date
+                                </>
+                              )}
+                            </button>
+
+                            <Link
+                              to="/slot-approve"
+                              state={{
+                                procurementCentreId: bookingData.selectedMandiId,
+                                centreName: selectedMandi.name,
+                                tab: "slots",
+                              }}
+                              className="text-xs font-bold text-emerald-800 hover:underline"
+                            >
+                              Open Slot Approval & Schedule Updates &rarr;
+                            </Link>
+                          </div>
                         </div>
                       ) : (
                         slots.map((slot) => {
@@ -1058,14 +1698,18 @@ export default function FarmerSlotBooking() {
 
                           const status = getSlotStatus(slot);
 
+                          const isSlotFull = status === "FULL";
+
                           return (
                             <label
                               key={slotId}
-                              className={`flex cursor-pointer items-center justify-between rounded-2xl border p-3.5 transition ${
-                                String(bookingData.selectedSlotId) ===
-                                String(slotId)
-                                  ? "border-[#14532d] bg-emerald-50/60 shadow-sm ring-1 ring-[#14532d]"
-                                  : "border-gray-200 bg-white hover:border-gray-300"
+                              className={`flex items-center justify-between rounded-2xl border p-3.5 transition ${
+                                isSlotFull
+                                  ? "border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed"
+                                  : String(bookingData.selectedSlotId) ===
+                                    String(slotId)
+                                  ? "cursor-pointer border-[#14532d] bg-emerald-50/60 shadow-sm ring-1 ring-[#14532d]"
+                                  : "cursor-pointer border-gray-200 bg-white hover:border-gray-300"
                               }`}
                             >
                               <div className="flex items-center gap-3">
@@ -1073,6 +1717,7 @@ export default function FarmerSlotBooking() {
                                   type="radio"
                                   name="selectedSlotId"
                                   value={slotId}
+                                  disabled={isSlotFull}
                                   checked={
                                     String(bookingData.selectedSlotId) ===
                                     String(slotId)
@@ -1082,8 +1727,13 @@ export default function FarmerSlotBooking() {
                                 />
 
                                 <div>
-                                  <div className="text-xs font-bold text-gray-900">
+                                  <div className="text-xs font-bold text-gray-900 flex items-center gap-2">
                                     Slot #{slotId}
+                                    {isSlotFull && (
+                                      <span className="rounded bg-red-100 px-1.5 py-0.5 text-[9px] font-bold text-red-700">
+                                        FULL
+                                      </span>
+                                    )}
                                   </div>
 
                                   <div className="mt-0.5 flex items-center gap-1 text-[11px] text-gray-500">
@@ -1091,7 +1741,13 @@ export default function FarmerSlotBooking() {
                                     {startTime} - {endTime}
                                   </div>
 
-                                  <div className="mt-1 text-[10px] uppercase font-semibold text-emerald-700">
+                                  <div
+                                    className={`mt-1 text-[10px] uppercase font-semibold ${
+                                      isSlotFull
+                                        ? "text-red-600"
+                                        : "text-emerald-700"
+                                    }`}
+                                  >
                                     {status}
                                   </div>
                                 </div>
@@ -1101,7 +1757,9 @@ export default function FarmerSlotBooking() {
                                 {availableTokens}
 
                                 <span className="block text-[9px] font-medium text-gray-500">
-                                  Tokens Open
+                                  {typeof availableTokens === "string"
+                                    ? "Remaining Capacity"
+                                    : "Tokens Open"}
                                 </span>
                               </span>
                             </label>

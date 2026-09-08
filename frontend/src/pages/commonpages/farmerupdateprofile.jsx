@@ -35,7 +35,7 @@ export default function UpdateProfile() {
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
-  // Preload stored credentials on mount
+  // Preload stored credentials & existing profile on mount
   useEffect(() => {
     const storedMobile = localStorage.getItem('userMobile') || '';
     const storedName = localStorage.getItem('userName') || '';
@@ -46,7 +46,43 @@ export default function UpdateProfile() {
       phone: storedMobile
     }));
 
-    setInitialLoading(false);
+    const fetchMyProfile = async () => {
+      const rawToken = localStorage.getItem('FARMER_JWT') || localStorage.getItem('token');
+      const token = rawToken ? rawToken.replace(/^"|"$/g, '').trim() : null;
+      if (!token) {
+        setInitialLoading(false);
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/farmers/me', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        if (response.ok) {
+          const profile = await response.json();
+          if (profile) {
+            setFormData({
+              name: profile.name || storedName,
+              phone: profile.phone || storedMobile,
+              adhaar: profile.adhaar || '',
+              village: profile.village || '',
+              block: profile.block || '',
+              district: profile.district || '',
+              state: profile.state || 'Bihar',
+              preferredLanguage: profile.preferredLanguage || 'hi'
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('Could not preload existing farmer profile:', err);
+      } finally {
+        setInitialLoading(false);
+      }
+    };
+
+    fetchMyProfile();
   }, []);
 
   const handleInputChange = (e) => {

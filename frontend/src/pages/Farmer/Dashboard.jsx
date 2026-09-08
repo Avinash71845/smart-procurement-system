@@ -23,6 +23,7 @@ import {
   User,
 } from "lucide-react";
 import { clearSession } from "../../utils/session";
+import { fetchCommodityPrices } from "../../api/commodityApi";
 
 export default function FarmerDashboard() {
   const navigate = useNavigate();
@@ -47,6 +48,14 @@ export default function FarmerDashboard() {
     queuePosition: 3,
     estimatedWait: "20 mins",
   });
+
+  const [mspCrops, setMspCrops] = useState([]);
+
+  useEffect(() => {
+    fetchCommodityPrices().then((data) => {
+      if (data && data.length > 0) setMspCrops(data);
+    });
+  }, []);
 
   const handleLogout = () => {
     clearSession();
@@ -328,43 +337,42 @@ export default function FarmerDashboard() {
               </p>
 
               <div className="mt-5 space-y-3">
-                {[
-                  {
-                    crop: "Wheat (Grade A)",
-                    rate: "₹2,275 / Qtl",
-                    status: "Procuring",
-                  },
-                  {
-                    crop: "Mustard Seeds",
-                    rate: "₹5,650 / Qtl",
-                    status: "High Demand",
-                  },
-                  {
-                    crop: "Paddy (Common)",
-                    rate: "₹2,183 / Qtl",
-                    status: "Active",
-                  },
-                  {
-                    crop: "Gram (Chana)",
-                    rate: "₹5,440 / Qtl",
-                    status: "Active",
-                  },
-                ].map((item, i) => (
+                {(mspCrops.length > 0
+                  ? mspCrops.slice(0, 5)
+                  : [
+                      { nameEn: "Wheat (Grade A)", mspRate: 2585, status: "Procuring" },
+                      { nameEn: "Mustard Seeds", mspRate: 6200, status: "High Demand" },
+                      { nameEn: "Gram (Chana)", mspRate: 5875, status: "Active" },
+                      { nameEn: "Paddy (Common)", mspRate: 2441, status: "Active" },
+                    ]
+                ).map((item, i) => (
                   <div
-                    key={i}
-                    className="flex items-center justify-between rounded-xl border border-gray-100 p-3 text-xs"
+                    key={item.id || i}
+                    className="flex items-center justify-between rounded-xl border border-gray-100 p-3 text-xs transition hover:border-emerald-200"
                   >
                     <div>
                       <span className="font-bold text-gray-900 block">
-                        {item.crop}
+                        {item.nameEn}
                       </span>
+                      {item.nameHi && (
+                        <span className="text-[10px] text-gray-400 block font-medium">
+                          {item.nameHi}
+                        </span>
+                      )}
                       <span className="text-[10px] font-semibold text-emerald-700">
-                        {item.status}
+                        {item.status || "Active Intake"}
                       </span>
                     </div>
-                    <span className="font-black text-gray-900">
-                      {item.rate}
-                    </span>
+                    <div className="text-right">
+                      <span className="font-black text-gray-900 block">
+                        ₹{item.mspRate?.toLocaleString()} / Qtl
+                      </span>
+                      {item.marketPrice && (
+                        <span className="text-[10px] text-gray-400 font-semibold">
+                          Spot: ₹{item.marketPrice?.toLocaleString()}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>

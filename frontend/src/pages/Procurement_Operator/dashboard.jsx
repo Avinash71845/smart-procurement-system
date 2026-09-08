@@ -77,8 +77,8 @@ export default function OperatorDashboard() {
         tareWeightQtl: '17.4',
         netWeightQtl: '45.0'
       },
-      mspRatePerQtl: 2275,
-      calculatedPayout: 102375
+      mspRatePerQtl: 2585,
+      calculatedPayout: 116325
     },
     {
       id: 'APT-102',
@@ -161,8 +161,8 @@ export default function OperatorDashboard() {
         tareWeightQtl: '',
         netWeightQtl: ''
       },
-      mspRatePerQtl: 2275,
-      calculatedPayout: 136500
+      mspRatePerQtl: 2585,
+      calculatedPayout: 155100
     }
   ]);
 

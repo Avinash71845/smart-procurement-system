@@ -56,6 +56,7 @@ function App() {
           element={<OperatorRegistration />}
         />
         <Route path="/track-live-queue" element={<QueueStatus />} />
+        <Route path="/live-queue" element={<QueueStatus />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Registration />} />
         <Route path="/landingpage" element={<Landingpage />} />

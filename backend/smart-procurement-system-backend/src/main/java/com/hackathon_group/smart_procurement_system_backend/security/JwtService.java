@@ -5,16 +5,21 @@ import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.security.Key;
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
 
 @Component
 public class JwtService {
 
-    private final Key secretKey = Keys.secretKeyFor(SignatureAlgorithm.HS256);
+    private final Key secretKey;
     private final long expirationTime = 1000 * 60 * 60 * 24; // 24 hours in milliseconds
 
+    public JwtService(@Value("${jwt.secret}") String secret) {
+        this.secretKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+    }
 
 
     public String generateToken(String mobile) {

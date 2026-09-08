@@ -6,11 +6,12 @@ import com.hackathon_group.smart_procurement_system_backend.queue.service.QueueS
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import java.security.Principal;
 
 import java.util.List;
 
 @RestController
-@RequestMapping("/queue")
+@RequestMapping({"/api/queue", "/queue"})
 @RequiredArgsConstructor
 public class QueueController {
 
@@ -55,6 +56,17 @@ public class QueueController {
     @GetMapping("/waiting")
     public ResponseEntity<List<QueueTokenResponse>> getWaitingQueue() {
         return ResponseEntity.ok(queueService.getWaitingQueue());
+    }
+
+    @GetMapping("/my/{bookingId}")
+    public ResponseEntity<QueueTokenResponse> getMyQueue(
+            @PathVariable Long bookingId,
+            Principal principal) {
+        QueueTokenResponse queue = queueService.getMyQueue(bookingId, principal.getName());
+        if (queue == null) {
+            return ResponseEntity.noContent().build();
+        }
+        return ResponseEntity.ok(queue);
     }
 
 // after completion

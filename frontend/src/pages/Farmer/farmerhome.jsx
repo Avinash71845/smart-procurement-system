@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import heroImage from "../../assets/heroimage.jpg";
 import {
   CalendarDays,
@@ -22,8 +22,12 @@ import {
   Mail,
   MapPin,
   LogOut,
+  RefreshCw,
+  TrendingUp,
+  ArrowRight,
 } from "lucide-react";
 import { clearSession } from "../../utils/session";
+import { fetchCommodityPrices } from "../../api/commodityApi";
 
 const features = [
   {
@@ -55,6 +59,43 @@ const features = [
 export default function FarmerHome() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
+
+  // Real-Time Commodity & MSP Rates state
+  const [crops, setCrops] = useState([]);
+  const [cropSearchQuery, setCropSearchQuery] = useState("");
+  const [cropCategory, setCropCategory] = useState("All");
+  const [loadingCrops, setLoadingCrops] = useState(false);
+  const [showAllModal, setShowAllModal] = useState(false);
+
+  // User entered Quintals per crop for live total price calculation
+  const [cardQuintals, setCardQuintals] = useState({});
+
+  const handleQuintalChange = (cropId, val) => {
+    const parsed = parseFloat(val);
+    const num = isNaN(parsed) ? 0 : Math.max(0, parsed);
+    setCardQuintals((prev) => ({
+      ...prev,
+      [cropId]: num,
+    }));
+  };
+
+  const loadCropsData = async () => {
+    setLoadingCrops(true);
+    try {
+      const data = await fetchCommodityPrices();
+      if (data && data.length > 0) setCrops(data);
+    } catch (err) {
+      console.error("Failed to load crops:", err);
+    } finally {
+      setLoadingCrops(false);
+    }
+  };
+
+  useEffect(() => {
+    loadCropsData();
+    const timer = setInterval(loadCropsData, 30000);
+    return () => clearInterval(timer);
+  }, []);
 
   const handleDashboardClick = () => {
     navigate("/farmerdashboard");
@@ -363,64 +404,336 @@ export default function FarmerHome() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5 }}
-          className="mt-16 rounded-2xl border border-emerald-900/10 bg-white/80 p-6 shadow-sm backdrop-blur-md"
+          className="mt-16 rounded-2xl border border-emerald-900/10 bg-white/90 p-6 shadow-sm backdrop-blur-md"
         >
-          <div className="flex flex-col items-start justify-between gap-4 border-b border-gray-100 pb-4 sm:flex-row sm:items-center">
+          {/* Board Header */}
+          <div className="flex flex-col items-start justify-between gap-4 border-b border-gray-100 pb-5 sm:flex-row sm:items-center">
             <div>
-              <span className="text-[11px] font-bold tracking-wider text-emerald-700 uppercase">
-                Live Commodity Board
-              </span>
-              <h2 className="text-lg font-bold text-gray-900">
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-extrabold tracking-wider text-emerald-700 uppercase">
+                  Live Commodity Board
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-bold text-emerald-800">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-600 animate-ping" />
+                  Live Mandi MSP Sync
+                </span>
+              </div>
+              <h2 className="mt-1 text-lg font-black text-gray-900">
                 Today's Minimum Support Price (MSP) & Market Rates
               </h2>
             </div>
-            <button
-              onClick={() => navigate("/dashboard")}
-              className="flex items-center gap-1 text-xs font-bold text-[#14532d] hover:underline"
-            >
-              View All 24 Crops <ChevronRight className="h-3.5 w-3.5" />
-            </button>
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={loadCropsData}
+                disabled={loadingCrops}
+                className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 active:scale-95 disabled:opacity-60"
+                title="Refresh Market Rates"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 text-emerald-700 ${loadingCrops ? "animate-spin" : ""}`} />
+                <span>{loadingCrops ? "Syncing..." : "Refresh"}</span>
+              </button>
+
+              <button
+                onClick={() => setShowAllModal(true)}
+                className="flex items-center gap-1 text-xs font-bold text-[#14532d] hover:underline"
+              >
+                View All 24 Crops <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
           </div>
 
-          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
-            {[
-              {
-                crop: "Wheat (Grade A)",
-                price: "₹2,275 / Qtl",
-                trend: "+1.4%",
-              },
-              { crop: "Paddy (Common)", price: "₹2,183 / Qtl", trend: "+0.8%" },
-              { crop: "Mustard Seeds", price: "₹5,650 / Qtl", trend: "+2.1%" },
-              {
-                crop: "Cotton (Medium)",
-                price: "₹6,620 / Qtl",
-                trend: "-0.3%",
-              },
-              { crop: "Gram (Chana)", price: "₹5,440 / Qtl", trend: "+1.0%" },
-              {
-                crop: "Soybean (Yellow)",
-                price: "₹4,600 / Qtl",
-                trend: "+0.5%",
-              },
-            ].map((item, idx) => (
-              <div
-                key={idx}
-                className="rounded-xl border border-gray-100 bg-[#f9fbf8] p-3 text-center transition hover:border-emerald-200"
-              >
-                <span className="block text-xs font-medium text-gray-500">
-                  {item.crop}
-                </span>
-                <span className="mt-1 block text-sm font-extrabold text-gray-900">
-                  {item.price}
-                </span>
-                <span
-                  className={`mt-0.5 inline-block text-[10px] font-bold ${item.trend.startsWith("+") ? "text-emerald-700" : "text-red-500"}`}
+          {/* Search & Category Filter Bar */}
+          <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            {/* Search input with English & Hindi support */}
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search any crop (e.g. Wheat, गेहूं, Sarson, Chana, धान, सोयाबीन)..."
+                value={cropSearchQuery}
+                onChange={(e) => setCropSearchQuery(e.target.value)}
+                className="w-full rounded-xl border border-gray-200 bg-white py-2 pl-10 pr-8 text-xs font-medium text-gray-800 placeholder-gray-400 shadow-sm transition focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+              />
+              {cropSearchQuery && (
+                <button
+                  onClick={() => setCropSearchQuery("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400 hover:text-gray-600"
                 >
-                  {item.trend}
-                </span>
-              </div>
-            ))}
+                  ✕
+                </button>
+              )}
+            </div>
+
+            {/* Category Filter Pills */}
+            <div className="flex flex-wrap gap-1.5">
+              {["All", "Cereals", "Pulses", "Oilseeds", "Commercial"].map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => setCropCategory(cat)}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                    cropCategory === cat
+                      ? "bg-[#14532d] text-white shadow-sm"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
           </div>
+
+          {/* Cards Grid */}
+          <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            {(() => {
+              const filtered = crops.filter((item) => {
+                const matchesCat =
+                  cropCategory === "All" ||
+                  item.category?.toLowerCase() === cropCategory.toLowerCase();
+                if (!matchesCat) return false;
+
+                if (!cropSearchQuery.trim()) {
+                  // Default top 6 major crops when not searching and category is 'All'
+                  return cropCategory !== "All" || [
+                    "wheat-grade-a", "paddy-common", "mustard-seeds",
+                    "cotton-medium", "gram-chana", "soybean-yellow"
+                  ].includes(item.id);
+                }
+
+                const q = cropSearchQuery.trim().toLowerCase();
+                return (
+                  item.nameEn?.toLowerCase().includes(q) ||
+                  item.nameHi?.toLowerCase().includes(q) ||
+                  item.category?.toLowerCase().includes(q) ||
+                  item.grade?.toLowerCase().includes(q)
+                );
+              });
+
+              if (filtered.length === 0) {
+                return (
+                  <div className="col-span-full py-8 text-center text-xs text-gray-500">
+                    No crops found matching "{cropSearchQuery}".{" "}
+                    <button
+                      onClick={() => {
+                        setCropSearchQuery("");
+                        setCropCategory("All");
+                      }}
+                      className="font-bold text-emerald-700 underline ml-1"
+                    >
+                      Clear Search
+                    </button>
+                  </div>
+                );
+              }
+
+              return filtered.map((item) => (
+                <div
+                  key={item.id}
+                  className="group relative flex flex-col justify-between rounded-xl border border-gray-100 bg-[#f9fbf8] p-3 text-center transition-all duration-200 hover:border-emerald-300 hover:bg-white hover:shadow-md"
+                >
+                  <div>
+                    {/* Top Row: Category & Trend */}
+                    <div className="flex items-center justify-between gap-1 mb-1.5">
+                      <span className="text-[9px] font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded">
+                        {item.category}
+                      </span>
+                      <span
+                        className={`text-[9px] font-black ${
+                          item.trend?.startsWith("+") ? "text-emerald-700" : "text-red-500"
+                        }`}
+                      >
+                        {item.trend}
+                      </span>
+                    </div>
+
+                    {/* Crop Name English + Hindi */}
+                    <span className="block text-xs font-extrabold text-gray-800 truncate" title={item.nameEn}>
+                      {item.nameEn}
+                    </span>
+                    {item.nameHi && (
+                      <span className="block text-[10px] font-semibold text-gray-400">
+                        {item.nameHi}
+                      </span>
+                    )}
+
+                    {/* ONLY Official Govt MSP Rate */}
+                    <div className="mt-2.5 rounded-xl bg-emerald-50/90 py-2 px-2.5 border border-emerald-200/80">
+                      <span className="block text-[9px] font-extrabold uppercase tracking-wider text-emerald-800">
+                        Official Govt MSP
+                      </span>
+                      <span className="block text-base font-black text-[#14532d]">
+                        ₹{item.mspRate?.toLocaleString()}
+                        <span className="text-[10px] font-bold text-gray-600"> / Qtl</span>
+                      </span>
+                    </div>
+
+                    {/* Live Quintal Price Calculator */}
+                    <div className="mt-2.5 rounded-xl border border-gray-100 bg-white p-2 text-left shadow-xs">
+                      <div className="flex items-center justify-between gap-1 text-[11px]">
+                        <span className="font-bold text-gray-600">Quantity:</span>
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="number"
+                            min="0.5"
+                            max="1000"
+                            step="0.5"
+                            value={cardQuintals[item.id] ?? 10}
+                            onChange={(e) => handleQuintalChange(item.id, e.target.value)}
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-14 rounded-md border border-gray-200 bg-gray-50 px-1 py-0.5 text-center text-xs font-black text-gray-900 focus:border-emerald-600 focus:bg-white focus:outline-none"
+                          />
+                          <span className="text-[10px] font-bold text-gray-500">Qtl</span>
+                        </div>
+                      </div>
+
+                      <div className="mt-1.5 flex items-center justify-between border-t border-gray-100 pt-1.5">
+                        <span className="text-[10px] font-semibold text-gray-500">Total Price:</span>
+                        <span className="text-xs font-black text-emerald-800">
+                          ₹{Math.round((cardQuintals[item.id] ?? 10) * item.mspRate).toLocaleString("en-IN")}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Book Slot Button */}
+                  <button
+                    onClick={() =>
+                      navigate("/slot-booking", {
+                        state: {
+                          selectedCrop: item.nameEn,
+                          cropId: item.id,
+                          quantityQtl: cardQuintals[item.id] ?? 10,
+                        },
+                      })
+                    }
+                    className="mt-3 flex items-center justify-center gap-1 w-full rounded-xl bg-[#14532d] py-2 text-[11px] font-bold text-white shadow-xs transition hover:bg-[#0f3e21] active:scale-95"
+                  >
+                    Book Slot &rarr;
+                  </button>
+                </div>
+              ));
+            })()}
+          </div>
+
+          {/* Full Crops Explorer Modal */}
+          <AnimatePresence>
+            {showAllModal && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+              >
+                <motion.div
+                  initial={{ scale: 0.95, y: 20 }}
+                  animate={{ scale: 1, y: 0 }}
+                  exit={{ scale: 0.95, y: 20 }}
+                  className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl"
+                >
+                  <div className="flex items-center justify-between border-b border-gray-100 pb-4">
+                    <div>
+                      <h3 className="text-lg font-black text-gray-900">
+                        Complete MSP & Mandi Rates Bulletin (24+ Commodities)
+                      </h3>
+                      <p className="text-xs text-gray-500">
+                        Government mandated MSP benchmark rates and live modal mandi spot prices across Indian APMCs.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setShowAllModal(false)}
+                      className="rounded-full bg-gray-100 p-2 text-gray-500 hover:bg-gray-200 font-bold"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {crops.map((crop) => (
+                      <div
+                        key={crop.id}
+                        className="flex flex-col justify-between rounded-2xl border border-gray-100 bg-[#f9fbf8] p-4 transition hover:border-emerald-300 hover:shadow-sm"
+                      >
+                        <div>
+                          <div className="flex items-center justify-between">
+                            <span className="rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                              {crop.category}
+                            </span>
+                            <span
+                              className={`text-xs font-black ${
+                                crop.trend?.startsWith("+") ? "text-emerald-700" : "text-red-500"
+                              }`}
+                            >
+                              {crop.trend}
+                            </span>
+                          </div>
+
+                          <h4 className="mt-2 text-sm font-black text-gray-900">
+                            {crop.nameEn}
+                          </h4>
+                          <span className="text-xs font-semibold text-gray-500">
+                            {crop.nameHi} • {crop.grade}
+                          </span>
+
+                          {/* ONLY Official Govt MSP */}
+                          <div className="mt-3 rounded-xl bg-emerald-50/90 p-2.5 border border-emerald-200/80">
+                            <span className="block text-[9px] font-extrabold uppercase tracking-wider text-emerald-800">
+                              Official Govt MSP
+                            </span>
+                            <span className="block text-base font-black text-[#14532d]">
+                              ₹{crop.mspRate?.toLocaleString()}
+                              <span className="text-[10px] font-bold text-gray-600"> / Quintal</span>
+                            </span>
+                          </div>
+
+                          {/* Quintal Price Calculator in Modal */}
+                          <div className="mt-2.5 rounded-xl border border-gray-100 bg-white p-2.5 text-left text-xs shadow-xs">
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="font-bold text-gray-600">Enter Qty:</span>
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  min="0.5"
+                                  max="1000"
+                                  step="0.5"
+                                  value={cardQuintals[crop.id] ?? 10}
+                                  onChange={(e) => handleQuintalChange(crop.id, e.target.value)}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="w-16 rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-center text-xs font-black text-gray-900 focus:border-emerald-600 focus:bg-white focus:outline-none"
+                                />
+                                <span className="text-xs font-bold text-gray-500">Qtl</span>
+                              </div>
+                            </div>
+                            <div className="mt-2 flex items-center justify-between border-t border-gray-100 pt-1.5">
+                              <span className="text-xs font-semibold text-gray-500">Total Price:</span>
+                              <span className="text-sm font-black text-emerald-900">
+                                ₹{Math.round((cardQuintals[crop.id] ?? 10) * crop.mspRate).toLocaleString("en-IN")}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => {
+                            setShowAllModal(false);
+                            navigate("/slot-booking", {
+                              state: {
+                                selectedCrop: crop.nameEn,
+                                cropId: crop.id,
+                                quantityQtl: cardQuintals[crop.id] ?? 10,
+                              },
+                            });
+                          }}
+                          className="mt-3 flex items-center justify-center gap-1 w-full rounded-xl bg-[#14532d] py-2 text-xs font-bold text-white transition hover:bg-[#0f3e21] active:scale-95 shadow-xs"
+                        >
+                          Book Procurement Slot <ArrowRight className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </motion.div>
       </main>
 

@@ -45,8 +45,13 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         // 2. Token extract karo ("Bearer " ke aage ka text)
         jwt = authHeader.substring(7);
 
-        // 3. Token se mobile number nikalo
-        mobile = jwtService.extractMobile(jwt);
+        try {
+            // 3. Token se mobile number nikalo
+            mobile = jwtService.extractMobile(jwt);
+        } catch (RuntimeException exception) {
+            filterChain.doFilter(request, response);
+            return;
+        }
 
         // 4. Check karo: mobile mil gaya aur abhi tak user login mark nahi hua hai
         if (mobile != null && SecurityContextHolder.getContext().getAuthentication() == null) {

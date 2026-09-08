@@ -37,8 +37,8 @@ import {
 } from "../../api/paymentApi";
 import { clearSession } from "../../utils/session";
 
-// Standard MSP rate per quintal (₹2,275 per 100kg = ₹22.75 per kg)
-const DEFAULT_MSP_RATE_PER_QTL = 2275;
+// Standard official Govt MSP rate per quintal (₹2,585 per 100kg = ₹25.85 per kg)
+const DEFAULT_MSP_RATE_PER_QTL = 2585;
 
 export default function PaymentPushDbtSync() {
   const navigate = useNavigate();

@@ -48,8 +48,11 @@ public class FarmerController {
 
 
 
-//    TODO
-//  - Fix POST/PUT 403 in SecurityConfig
-//- Integrate Farmer /me with JWT
-//- Finalize authentication/authorization
+    // Get logged-in farmer profile
+    @GetMapping("/me")
+    public ResponseEntity<FarmerResponse> getMyProfile(Authentication authentication) {
+        String mobile = authentication.getName();
+        FarmerResponse response = farmerService.getFarmerByMobile(mobile);
+        return ResponseEntity.ok(response);
+    }
 }
