@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const procurementApi = axios.create({
-  baseURL: "http://localhost:8080/api/procurement-centres",
+  baseURL: "/api/procurement-centres",
   headers: { "Content-Type": "application/json" },
 });
 

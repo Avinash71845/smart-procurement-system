@@ -62,7 +62,7 @@ export default function OperatorHeaderWithSlotModal() {
       "";
 
     try {
-      const response = await fetch("http://localhost:8080/api/slots", {
+      const response = await fetch("/api/slots", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

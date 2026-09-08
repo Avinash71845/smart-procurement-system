@@ -12,7 +12,7 @@ import {
   UserRound,
   Wheat,
 } from "lucide-react";
-import { getMyQueue } from "../../api/queueApi";
+import { getCurrentQueue, getWaitingQueue } from "../../api/queueApi";
 
 const statusCopy = {
   WAITING: {
@@ -37,14 +37,6 @@ const statusCopy = {
   },
 };
 
-function getToken() {
-  return (
-    localStorage.getItem("FARMER_JWT") ||
-    localStorage.getItem("token") ||
-    localStorage.getItem("JWT_TOKEN")
-  );
-}
-
 export default function TrackLiveQueue() {
   const navigate = useNavigate();
   const [bookingId, setBookingId] = useState(
@@ -64,28 +56,45 @@ export default function TrackLiveQueue() {
         return;
       }
 
-      if (!getToken()) {
-        setErrorMessage(
-          "Please sign in as a farmer before checking your queue.",
-        );
-        return;
-      }
-
       if (showLoader) setIsLoading(true);
       try {
-        const result = await getMyQueue(Number(bookingId));
-        setQueue(result || null);
-        setErrorMessage(
-          result
-            ? ""
-            : "Your booking has not been checked in by the operator yet.",
+        const [waitingQueue, currentQueue] = await Promise.all([
+          getWaitingQueue(true),
+          getCurrentQueue(true),
+        ]);
+        const waiting = Array.isArray(waitingQueue) ? waitingQueue : [];
+        const current = currentQueue || null;
+        const parsedBookingId = Number(bookingId);
+        const waitingIndex = waiting.findIndex(
+          (item) => Number(item.bookingId) === parsedBookingId,
         );
+        const ownCurrent =
+          current && Number(current.bookingId) === parsedBookingId
+            ? current
+            : null;
+
+        if (ownCurrent) {
+          setQueue({ ...ownCurrent, queuePosition: 0 });
+          setErrorMessage("");
+        } else if (waitingIndex >= 0) {
+          setQueue({
+            ...waiting[waitingIndex],
+            queuePosition: waitingIndex + 1,
+          });
+          setErrorMessage("");
+        } else {
+          setQueue(null);
+          setErrorMessage(
+            "Your booking has not been checked in by the operator yet.",
+          );
+        }
       } catch (error) {
         setQueue(null);
         setErrorMessage(
           error.response?.status === 401 || error.response?.status === 403
             ? "Please sign in as the farmer who owns this booking."
             : error.response?.data?.message ||
+                error.message ||
                 "Unable to load your queue status.",
         );
       } finally {
@@ -219,6 +228,11 @@ export default function TrackLiveQueue() {
                   <p className="mt-1 text-sm text-emerald-100">
                     {status.detail}
                   </p>
+                  <p className="mt-3 text-xs font-bold text-emerald-200">
+                    {queue.queuePosition === 0
+                      ? "You are currently being served."
+                      : `Position ${queue.queuePosition} in the waiting list`}
+                  </p>
                 </div>
                 <div className="rounded-2xl border border-white/15 bg-white/10 p-5 text-center">
                   <span className="block text-[11px] font-bold uppercase tracking-wider text-emerald-200">
@@ -226,6 +240,16 @@ export default function TrackLiveQueue() {
                   </span>
                   <strong className="mt-1 block text-2xl font-black">
                     {queue.status}
+                  </strong>
+                </div>
+                <div className="rounded-2xl border border-white/15 bg-white/10 p-5 text-center">
+                  <span className="block text-[11px] font-bold uppercase tracking-wider text-emerald-200">
+                    Queue position
+                  </span>
+                  <strong className="mt-1 block text-2xl font-black">
+                    {queue.queuePosition === 0
+                      ? "Serving"
+                      : `#${queue.queuePosition}`}
                   </strong>
                 </div>
               </div>

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
+import heroImage from "../../assets/heroimage.jpg";
 import {
   CalendarDays,
   GitFork,
@@ -316,7 +317,7 @@ export default function FarmerHome() {
           >
             <div className="relative w-full max-w-md overflow-hidden rounded-3xl border border-white/80 bg-white/40 p-2.5 shadow-2xl backdrop-blur-sm">
               <img
-                src="https://images.unsplash.com/photo-1592982537447-7440770cbfc9?auto=format&fit=crop&w=800&q=80"
+                src={heroImage}
                 alt="Farmer using smartphone on agriculture field"
                 className="h-80 w-full rounded-2xl object-cover lg:h-[380px]"
               />

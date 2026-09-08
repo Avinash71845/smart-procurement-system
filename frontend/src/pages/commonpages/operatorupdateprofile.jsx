@@ -114,7 +114,7 @@ export default function OperatorUpdateProfile() {
 
     try {
       const response = await fetch('/api/procurement-centres', {
-        method: 'PUT', // Change to POST if backend endpoint is configured as @PostMapping
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${localStorage.getItem('token') || ''}`

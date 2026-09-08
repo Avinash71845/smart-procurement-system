@@ -22,11 +22,15 @@ queueApi.interceptors.request.use((config) => {
 export const checkInBooking = (bookingId) =>
   queueApi.post("/check-in", { bookingId }).then((response) => response.data);
 
-export const getWaitingQueue = () =>
-  queueApi.get("/waiting").then((response) => response.data);
+export const getWaitingQueue = (farmerAuth = false) =>
+  queueApi
+    .get("/waiting", farmerAuth ? { meta: { farmerAuth: true } } : undefined)
+    .then((response) => response.data);
 
-export const getCurrentQueue = () =>
-  queueApi.get("/current").then((response) => response.data);
+export const getCurrentQueue = (farmerAuth = false) =>
+  queueApi
+    .get("/current", farmerAuth ? { meta: { farmerAuth: true } } : undefined)
+    .then((response) => response.data);
 
 export const getMyQueue = (bookingId) =>
   queueApi

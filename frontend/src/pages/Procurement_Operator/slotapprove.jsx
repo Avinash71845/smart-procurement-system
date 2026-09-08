@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { ToastContainer, toast } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import {
   Building2,
   MapPin,
@@ -13,20 +13,20 @@ import {
   PlusCircle,
   Building,
   CalendarPlus,
-  ArrowRight
-} from 'lucide-react';
+  ArrowRight,
+} from "lucide-react";
 
 export default function OperatorCreateProcurementCentre() {
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
-    name: 'Jehanabad Procurement Centre',
-    code: 'JHB002',
-    address: 'Main Road, Near Bus Stand',
-    village: 'Rampur',
-    block: 'Jehanabad Sadar',
-    district: 'Jehanabad',
-    state: 'Bihar'
+    name: "Jehanabad Procurement Centre",
+    code: "JHB002",
+    address: "Main Road, Near Bus Stand",
+    village: "Rampur",
+    block: "Jehanabad Sadar",
+    district: "Jehanabad",
+    state: "Bihar",
   });
 
   const [loading, setLoading] = useState(false);
@@ -43,7 +43,10 @@ export default function OperatorCreateProcurementCentre() {
     setLoading(true);
     setError(null);
 
-    const token = localStorage.getItem('OPERATOR_JWT') || localStorage.getItem('JWT_TOKEN') || '';
+    const token =
+      localStorage.getItem("OPERATOR_JWT") ||
+      localStorage.getItem("JWT_TOKEN") ||
+      "";
 
     const payload = {
       name: formData.name.trim(),
@@ -52,55 +55,66 @@ export default function OperatorCreateProcurementCentre() {
       village: formData.village.trim(),
       block: formData.block.trim(),
       district: formData.district.trim(),
-      state: formData.state.trim()
+      state: formData.state.trim(),
     };
 
     try {
-      const response = await fetch('http://localhost:8080/api/procurement-centres', {
-        method: 'POST',
+      const response = await fetch("/api/procurement-centres", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
-        throw new Error(`Server returned status ${response.status}: Failed to register centre`);
+        throw new Error(
+          `Server returned status ${response.status}: Failed to register centre`,
+        );
       }
 
       const data = await response.json();
       setSuccessResponse(data);
 
-      toast.success(`Procurement Centre "${data.name || payload.name}" created successfully!`, {
-        position: 'top-right',
-        autoClose: 3500,
-        hideProgressBar: false,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-        theme: 'colored'
-      });
+      toast.success(
+        `Procurement Centre "${data.name || payload.name}" created successfully!`,
+        {
+          position: "top-right",
+          autoClose: 3500,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+          theme: "colored",
+        },
+      );
     } catch (err) {
-      console.warn('Backend unavailable or errored; rendering simulated response for testing:', err.message);
+      console.warn(
+        "Backend unavailable or errored; rendering simulated response for testing:",
+        err.message,
+      );
 
       const mockData = {
         id: Math.floor(100 + Math.random() * 900),
         ...payload,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
       };
       setSuccessResponse(mockData);
 
       // Trigger toast for the created centre (mock environment fallback)
-      toast.success(`Procurement Centre "${mockData.name}" created successfully (Preview Mode)!`, {
-        position: 'top-right',
-        autoClose: 3500,
-        hideProgressBar: false,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-        theme: 'colored'
-      });
+      toast.success(
+        `Procurement Centre "${mockData.name}" created successfully (Preview Mode)!`,
+        {
+          position: "top-right",
+          autoClose: 3500,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+          theme: "colored",
+        },
+      );
     } finally {
       setLoading(false);
     }
@@ -119,7 +133,9 @@ export default function OperatorCreateProcurementCentre() {
               <Building2 className="h-5 w-5 text-[#00e699]" />
             </div>
             <div>
-              <h1 className="text-base font-extrabold text-[#14532d]">Mandi Admin Portal</h1>
+              <h1 className="text-base font-extrabold text-[#14532d]">
+                Mandi Admin Portal
+              </h1>
               <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
                 Procurement Centre Management
               </p>
@@ -129,7 +145,7 @@ export default function OperatorCreateProcurementCentre() {
           {/* Direct Navigation to Create Slot */}
           <button
             type="button"
-            onClick={() => navigate('/operator/create-slot')}
+            onClick={() => navigate("/operator/create-slot")}
             className="flex items-center gap-2 rounded-xl bg-[#14532d] px-4 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-[#0f3e21]"
           >
             <CalendarPlus className="h-4 w-4 text-[#00e699]" />
@@ -144,9 +160,12 @@ export default function OperatorCreateProcurementCentre() {
           {/* Left Form (7 Cols) */}
           <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm sm:p-8 lg:col-span-7">
             <div className="border-b border-gray-100 pb-4">
-              <h2 className="text-xl font-black text-gray-900">Add Procurement Centre</h2>
+              <h2 className="text-xl font-black text-gray-900">
+                Add Procurement Centre
+              </h2>
               <p className="mt-1 text-xs text-gray-500">
-                Register a new physical mandi hub or collection point to accept grain allocations and manage slots.
+                Register a new physical mandi hub or collection point to accept
+                grain allocations and manage slots.
               </p>
             </div>
 
@@ -159,7 +178,9 @@ export default function OperatorCreateProcurementCentre() {
 
             <form onSubmit={handleSubmit} className="mt-6 space-y-4">
               <div>
-                <label className="text-xs font-bold text-gray-700">Centre Name</label>
+                <label className="text-xs font-bold text-gray-700">
+                  Centre Name
+                </label>
                 <div className="relative mt-1.5">
                   <Building className="absolute left-3.5 top-3 h-4 w-4 text-gray-400" />
                   <input
@@ -176,7 +197,9 @@ export default function OperatorCreateProcurementCentre() {
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="text-xs font-bold text-gray-700">Centre Code</label>
+                  <label className="text-xs font-bold text-gray-700">
+                    Centre Code
+                  </label>
                   <div className="relative mt-1.5">
                     <Barcode className="absolute left-3.5 top-3 h-4 w-4 text-gray-400" />
                     <input
@@ -192,7 +215,9 @@ export default function OperatorCreateProcurementCentre() {
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-gray-700">State</label>
+                  <label className="text-xs font-bold text-gray-700">
+                    State
+                  </label>
                   <input
                     type="text"
                     name="state"
@@ -206,7 +231,9 @@ export default function OperatorCreateProcurementCentre() {
               </div>
 
               <div>
-                <label className="text-xs font-bold text-gray-700">Street / Local Address</label>
+                <label className="text-xs font-bold text-gray-700">
+                  Street / Local Address
+                </label>
                 <div className="relative mt-1.5">
                   <MapPin className="absolute left-3.5 top-3 h-4 w-4 text-gray-400" />
                   <input
@@ -223,7 +250,9 @@ export default function OperatorCreateProcurementCentre() {
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <div>
-                  <label className="text-xs font-bold text-gray-700">Village</label>
+                  <label className="text-xs font-bold text-gray-700">
+                    Village
+                  </label>
                   <input
                     type="text"
                     name="village"
@@ -235,7 +264,9 @@ export default function OperatorCreateProcurementCentre() {
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-gray-700">Block</label>
+                  <label className="text-xs font-bold text-gray-700">
+                    Block
+                  </label>
                   <input
                     type="text"
                     name="block"
@@ -247,7 +278,9 @@ export default function OperatorCreateProcurementCentre() {
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-gray-700">District</label>
+                  <label className="text-xs font-bold text-gray-700">
+                    District
+                  </label>
                   <input
                     type="text"
                     name="district"
@@ -268,11 +301,13 @@ export default function OperatorCreateProcurementCentre() {
                 >
                   {loading ? (
                     <>
-                      <Loader2 className="h-4 w-4 animate-spin" /> Creating Centre...
+                      <Loader2 className="h-4 w-4 animate-spin" /> Creating
+                      Centre...
                     </>
                   ) : (
                     <>
-                      <PlusCircle className="h-4 w-4 text-[#00e699]" /> Register Procurement Centre
+                      <PlusCircle className="h-4 w-4 text-[#00e699]" /> Register
+                      Procurement Centre
                     </>
                   )}
                 </button>
@@ -296,10 +331,10 @@ export default function OperatorCreateProcurementCentre() {
                     village: formData.village,
                     block: formData.block,
                     district: formData.district,
-                    state: formData.state
+                    state: formData.state,
                   },
                   null,
-                  2
+                  2,
                 )}
               </pre>
             </div>
@@ -317,17 +352,20 @@ export default function OperatorCreateProcurementCentre() {
                 </div>
                 <div className="mt-3 space-y-1.5 font-medium text-emerald-900">
                   <p>
-                    <strong>ID:</strong> {successResponse.id || 'Assigned'}
+                    <strong>ID:</strong> {successResponse.id || "Assigned"}
                   </p>
                   <p>
                     <strong>Centre Name:</strong> {successResponse.name}
                   </p>
                   <p>
-                    <strong>Centre Code:</strong>{' '}
-                    <span className="font-mono font-bold">{successResponse.code}</span>
+                    <strong>Centre Code:</strong>{" "}
+                    <span className="font-mono font-bold">
+                      {successResponse.code}
+                    </span>
                   </p>
                   <p>
-                    <strong>Jurisdiction:</strong> {successResponse.district}, {successResponse.state}
+                    <strong>Jurisdiction:</strong> {successResponse.district},{" "}
+                    {successResponse.state}
                   </p>
                 </div>
 
@@ -336,11 +374,11 @@ export default function OperatorCreateProcurementCentre() {
                   <button
                     type="button"
                     onClick={() =>
-                      navigate('/operator/create-slot', {
+                      navigate("/operator/create-slot", {
                         state: {
                           procurementCentreId: successResponse.id || 2,
-                          centreName: successResponse.name
-                        }
+                          centreName: successResponse.name,
+                        },
                       })
                     }
                     className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#14532d] py-3 text-xs font-bold text-white shadow-sm transition hover:bg-[#0f3e21]"

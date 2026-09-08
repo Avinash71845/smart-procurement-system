@@ -26,7 +26,7 @@ import FarmerUpdateProfile from "./pages/commonpages/farmerupdateprofile";
 import OperatorUpdateProfile from "./pages/commonpages/operatorupdateprofile";
 import OperatorHeaderWithSlotModal from "./pages/Procurement_Operator/createslot";
 import RequireOperator from "./components/RequireOperator";
-
+import Chatbot from "./pages/commonpages/Chatbot"
 function App() {
   return (
     <BrowserRouter>
@@ -90,6 +90,7 @@ function App() {
           element={<FarmerUpdateProfile />}
         />
       </Routes>
+      <Chatbot />
     </BrowserRouter>
   );
 }

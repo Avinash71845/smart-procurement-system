@@ -39,7 +39,7 @@ export default function OperatorLogin() {
     clearSession();
 
     try {
-      const response = await fetch("http://localhost:8080/auth/login", {
+      const response = await fetch("/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -154,20 +154,19 @@ export default function OperatorLogin() {
               </div>
             )}
 
-            {/* Mandi / Center Code */}
+            {/* Mandi / Center Code (Optional) */}
             <div>
               <label className="text-xs font-bold text-gray-700">
-                Assigned Center Code
+                Assigned Center Code <span className="text-gray-400 font-normal">(Optional)</span>
               </label>
               <div className="relative mt-1.5">
                 <Building2 className="absolute left-3.5 top-3 h-4 w-4 text-gray-400" />
                 <input
                   type="text"
                   name="centerCode"
-                  required
                   value={formData.centerCode}
                   onChange={handleInputChange}
-                  placeholder="MANDI-PAT-01"
+                  placeholder="e.g. MANDI-PAT-01"
                   className="w-full uppercase rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-xs text-gray-900 shadow-sm focus:border-emerald-600 focus:outline-none"
                 />
               </div>
@@ -255,9 +254,15 @@ export default function OperatorLogin() {
             </button>
           </form>
 
-          {/* Security Notice */}
-          <div className="mt-6 border-t border-gray-100 pt-4 text-center">
-            <p className="flex items-center justify-center gap-1.5 text-[11px] text-gray-400">
+          {/* Registration Link & Security Notice */}
+          <div className="mt-5 border-t border-gray-100 pt-4 text-center">
+            <p className="text-xs text-gray-500">
+              New Operator?{" "}
+              <Link to="/operatorregistration" className="font-bold text-[#14532d] underline hover:text-[#0f3e21]">
+                Register with Mobile Number
+              </Link>
+            </p>
+            <p className="mt-3 flex items-center justify-center gap-1.5 text-[11px] text-gray-400">
               <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
               256-bit Encrypted Government APMC Gateway
             </p>

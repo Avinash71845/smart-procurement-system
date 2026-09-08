@@ -180,7 +180,7 @@ export default function FarmerLogin() {
         if (activeRole.includes("operator")) {
           navigate("/operatorhome");
         } else {
-          navigate("/farmerhome");
+          navigate("/farmer-update-profile");
         }
       }, 1000);
     } catch (error) {
