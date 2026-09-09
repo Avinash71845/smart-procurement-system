@@ -34,9 +34,8 @@ public class ProcurementCentreCreateRequest {
     @NotBlank(message = "State is required")
     private String state;
 
-//    @NotNull(message = "Latitude is required")
-//    private Double latitude;
-//
-//    @NotNull(message = "Longitude is required")
-//    private Double longitude;
+
+    private Double latitude;
+
+    private Double longitude;
 }

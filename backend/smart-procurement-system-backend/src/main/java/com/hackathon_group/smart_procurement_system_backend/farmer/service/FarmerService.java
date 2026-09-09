@@ -8,6 +8,8 @@ import com.hackathon_group.smart_procurement_system_backend.farmer.entity.Farmer
 import com.hackathon_group.smart_procurement_system_backend.farmer.repository.FarmerRepository;
 import com.hackathon_group.smart_procurement_system_backend.auth.entity.User;
 import com.hackathon_group.smart_procurement_system_backend.auth.repository.UserRepository;
+import com.hackathon_group.smart_procurement_system_backend.notification.entity.NotificationType;
+import com.hackathon_group.smart_procurement_system_backend.notification.service.NotificationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -21,6 +23,9 @@ public class FarmerService {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private NotificationService notificationService;
 
 
     // create
@@ -54,6 +59,13 @@ public class FarmerService {
         farmer.setPreferredLanguage(request.getPreferredLanguage());
 
         Farmer savedFarmer = farmerRepository.save(farmer);
+
+        notificationService.createNotification(
+                savedFarmer.getId(),
+                "Registration Successful",
+                "Your farmer registration has been completed successfully.",
+                NotificationType.REGISTRATION
+        );
 
         return mapToResponse(savedFarmer);
     }

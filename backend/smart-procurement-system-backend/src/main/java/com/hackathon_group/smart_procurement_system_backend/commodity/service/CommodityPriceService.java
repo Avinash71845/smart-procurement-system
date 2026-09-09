@@ -48,7 +48,7 @@ public class CommodityPriceService {
 
         commodityCatalog.add(new CropPriceDto(
                 "cotton-medium", "Cotton (Medium)", "कपास (मध्यम स्टेपल)", "Commercial", "Medium Staple",
-                7121.0, 7300.0, 7000.0, 7450.0, "₹/Qtl",
+                7122.0, 7300.0, 7000.0, 7450.0, "₹/Qtl",
                 420.0, 273.0, 65, "-0.3%", "Target 65%", now
         ));
 

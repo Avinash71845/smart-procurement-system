@@ -26,6 +26,7 @@ import FarmerUpdateProfile from "./pages/commonpages/farmerupdateprofile";
 import OperatorUpdateProfile from "./pages/commonpages/operatorupdateprofile";
 import OperatorHeaderWithSlotModal from "./pages/Procurement_Operator/createslot";
 import RequireOperator from "./components/RequireOperator";
+import NearbyCentres from "./components/NearbyCentres";
 import Chatbot from "./pages/commonpages/Chatbot"
 function App() {
   return (
@@ -90,6 +91,10 @@ function App() {
           path="/farmer-update-profile"
           element={<FarmerUpdateProfile />}
         />
+        <Route
+    path="/farmer-nearby-centres"
+    element={<NearbyCentres />}
+/>
       </Routes>
       <Chatbot />
     </BrowserRouter>

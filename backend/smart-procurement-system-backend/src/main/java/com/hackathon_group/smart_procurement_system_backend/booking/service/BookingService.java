@@ -7,6 +7,8 @@ import com.hackathon_group.smart_procurement_system_backend.booking.entity.Booki
 import com.hackathon_group.smart_procurement_system_backend.booking.repository.BookingRepository;
 import com.hackathon_group.smart_procurement_system_backend.farmer.entity.Farmer;
 import com.hackathon_group.smart_procurement_system_backend.farmer.repository.FarmerRepository;
+import com.hackathon_group.smart_procurement_system_backend.notification.entity.NotificationType;
+import com.hackathon_group.smart_procurement_system_backend.notification.service.NotificationService;
 import com.hackathon_group.smart_procurement_system_backend.slot.entity.Slot;
 import com.hackathon_group.smart_procurement_system_backend.slot.entity.SlotStatus;
 import com.hackathon_group.smart_procurement_system_backend.slot.repository.SlotRepository;
@@ -35,6 +37,9 @@ public class BookingService {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private NotificationService notificationService;
 
 
     @Transactional
@@ -162,6 +167,13 @@ public class BookingService {
         // 13. Save booking
         Booking savedBooking =
                 bookingRepository.save(booking);
+
+        notificationService.createNotification(
+                savedBooking.getFarmer().getId(),
+                "Slot Booked Successfully",
+                "Your procurement slot has been booked successfully.",
+                NotificationType.SLOT_BOOKED
+        );
 
 
         // 14. Return response

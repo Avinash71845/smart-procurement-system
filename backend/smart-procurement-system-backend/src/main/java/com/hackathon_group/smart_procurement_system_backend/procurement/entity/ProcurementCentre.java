@@ -30,9 +30,9 @@ public class ProcurementCentre {
 
     private String state;
 
-//    private Double latitude;
-//
-//    private Double longitude;
+    private Double latitude;
+
+    private Double longitude;
 
     @Column(nullable = false)
     private Boolean active = true;

@@ -1,5 +1,6 @@
 package com.hackathon_group.smart_procurement_system_backend.procurement.controller;
 
+import com.hackathon_group.smart_procurement_system_backend.procurement.dto.NearbyCentreResponse;
 import com.hackathon_group.smart_procurement_system_backend.procurement.dto.ProcurementCentreCreateRequest;
 import com.hackathon_group.smart_procurement_system_backend.procurement.dto.ProcurementCentreResponse;
 import com.hackathon_group.smart_procurement_system_backend.procurement.dto.ProcurementCentreUpdateRequest;
@@ -66,5 +67,16 @@ public class ProcurementCentreController {
                 service.updateCentre(id, request);
 
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/nearby")
+    public ResponseEntity<List<NearbyCentreResponse>> getNearbyCentres(
+            @RequestParam Double latitude,
+            @RequestParam Double longitude) {
+
+        List<NearbyCentreResponse> centres =
+                service.getNearbyCentres(latitude, longitude);
+
+        return ResponseEntity.ok(centres);
     }
 }

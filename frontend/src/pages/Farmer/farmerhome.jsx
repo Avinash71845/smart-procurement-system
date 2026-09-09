@@ -157,7 +157,7 @@ export default function FarmerHome() {
             </button>
 
             <button
-              onClick={() => navigate("/dashboard")}
+              onClick={() => navigate("/farmer-nearby-centres")}
               className="flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-semibold text-gray-700 transition hover:bg-white hover:text-[#14532d] hover:shadow-sm"
             >
               <Search className="h-3.5 w-3.5 text-emerald-600" />
